@@ -6,3 +6,10 @@ edition = "2021"
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
 
 [dependencies]
+itertools = "0.10.5"
+kdam = "0.3.0"
+rand = { version = "0.8.5", features = ["small_rng"] }
+rayon = "1.6.1"
+
+[profile.release]
+debug = true
