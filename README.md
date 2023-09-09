@@ -3,7 +3,10 @@ This was a quick (10hrs~) implementation of the concepts presented in [Ray Traci
 
 # Future work
 - Work on GPU support
-- 
+- Add support for triangles
+  - More generally add support for more 3D objects
+- Make it more efficient
+  - e.g. more parallelization
 
 
 [^1]: For example the use of Rayon for easy parallelization of sampling

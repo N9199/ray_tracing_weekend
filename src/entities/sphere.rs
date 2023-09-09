@@ -15,7 +15,6 @@ pub struct Sphere {
 }
 
 impl Hittable for Sphere {
-    #[inline]
     fn hit(&self, r: &Ray, range: RangeInclusive<f64>) -> Option<HitRecord> {
         let oc = r.get_origin() - self.center;
         let a = r.get_direction().length_squared();
@@ -28,9 +27,9 @@ impl Hittable for Sphere {
         let sqrt_discriminant = discriminant.sqrt();
         let t = {
             let root = (-half_b - sqrt_discriminant) / a;
-            if !range.contains(&root) {
+            if !(*range.start() <= root && root <= *range.end()) {
                 let root = (-half_b + sqrt_discriminant) / a;
-                range.contains(&root).then_some(root)?
+                (*range.start() <= root && root <= *range.end()).then_some(root)?
             } else {
                 root
             }

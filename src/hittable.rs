@@ -1,4 +1,4 @@
-use core::ops::RangeInclusive;
+use core::{any::Any, ops::RangeInclusive};
 
 use crate::{
     material::Material,
@@ -55,6 +55,34 @@ impl<'a> HitRecord<'a> {
     }
 }
 
-pub trait Hittable: Sync + Send {
+pub trait Hittable: Sync + Send + Any {
     fn hit(&self, r: &Ray, range: RangeInclusive<f64>) -> Option<HitRecord<'_>>;
+}
+
+pub trait HittableArray: Hittable + Sync + Send {
+    fn as_any(&self)->&dyn Any;
+    fn as_any_mut(&mut self)->&mut dyn Any;
+}
+
+impl<T> HittableArray for Vec<T> where T: Hittable {
+    fn as_any(&self)->&dyn Any {
+        self as _
+    }
+
+    fn as_any_mut(&mut self)->&mut dyn Any {
+        self as _
+    }
+}
+
+impl<T> Hittable for Vec<T>
+where
+    T: Hittable,
+{
+    fn hit(&self, r: &Ray, range: RangeInclusive<f64>) -> Option<HitRecord<'_>> {
+        let &start = range.start();
+        let &end = range.end();
+        self.iter()
+            .filter_map(|obj| obj.hit(r, start..=end))
+            .min_by(|a, b| a.get_t().total_cmp(&b.get_t()))
+    }
 }

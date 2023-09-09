@@ -1,6 +1,6 @@
 use std::sync::Mutex;
 
-use rand::{distributions::Open01, rngs::SmallRng, Rng, SeedableRng};
+use rand::{distributions::Open01, rngs::SmallRng, Rng, SeedableRng, thread_rng};
 
 use crate::{
     hittable::HitRecord,
@@ -22,7 +22,7 @@ impl Clone for Lambertian {
     fn clone(&self) -> Self {
         Self {
             albedo: self.albedo,
-            rng: Mutex::new(SmallRng::from_entropy()),
+            rng: Mutex::new(SmallRng::from_rng(thread_rng()).unwrap()),
         }
     }
 }
@@ -31,7 +31,7 @@ impl Lambertian {
     pub fn new(albedo: Colour) -> Self {
         Self {
             albedo,
-            rng: Mutex::new(SmallRng::from_entropy()),
+            rng: Mutex::new(SmallRng::from_rng(thread_rng()).unwrap()),
         }
     }
 }
@@ -59,7 +59,7 @@ impl Clone for Metal {
         Self {
             albedo: self.albedo,
             fuzz: self.fuzz,
-            rng: Mutex::new(SmallRng::from_entropy()),
+            rng: Mutex::new(SmallRng::from_rng(thread_rng()).unwrap()),
         }
     }
 }
@@ -69,7 +69,7 @@ impl Metal {
         Self {
             albedo,
             fuzz,
-            rng: Mutex::new(SmallRng::from_entropy()),
+            rng: Mutex::new(SmallRng::from_rng(thread_rng()).unwrap()),
         }
     }
 }
@@ -95,7 +95,7 @@ impl Clone for Dialectric {
     fn clone(&self) -> Self {
         Self {
             index_of_refraction: self.index_of_refraction,
-            rng: Mutex::new(SmallRng::from_entropy()),
+            rng: Mutex::new(SmallRng::from_rng(thread_rng()).unwrap()),
         }
     }
 }
@@ -104,7 +104,7 @@ impl Dialectric {
     pub fn new(index_of_refraction: f64) -> Self {
         Self {
             index_of_refraction,
-            rng: Mutex::new(SmallRng::from_entropy()),
+            rng: Mutex::new(SmallRng::from_rng(thread_rng()).unwrap()),
         }
     }
     #[inline]

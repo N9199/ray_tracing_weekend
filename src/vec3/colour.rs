@@ -20,7 +20,7 @@ impl Colour {
         let g = colour.0.get_y();
         let b = colour.0.get_z();
 
-        let scale = 1. / f64::from(samples_per_pixel);
+        let scale = 1. / samples_per_pixel as f64;
 
         let r = (r * scale).sqrt();
         let g = (g * scale).sqrt();
