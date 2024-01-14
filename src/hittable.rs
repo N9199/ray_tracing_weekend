@@ -1,6 +1,7 @@
 use core::{any::Any, ops::RangeInclusive};
 
 use crate::{
+    entities::{AABBox, Bounded},
     material::Material,
     ray::Ray,
     vec3::{Point3, Vec3},
@@ -59,30 +60,29 @@ pub trait Hittable: Sync + Send + Any {
     fn hit(&self, r: &Ray, range: RangeInclusive<f64>) -> Option<HitRecord<'_>>;
 }
 
+pub trait BoundedHittable: Hittable + Bounded {
+    fn is_aabbox_hit(&self, r: &Ray, range: RangeInclusive<f64>) -> bool {
+        self.get_aabbox().is_hit(r, range)
+    }
+}
+
 pub trait HittableArray: Hittable + Sync + Send {
-    fn as_any(&self)->&dyn Any;
-    fn as_any_mut(&mut self)->&mut dyn Any;
+    fn as_any(&self) -> &dyn Any;
+    fn as_any_mut(&mut self) -> &mut dyn Any;
 }
-
-impl<T> HittableArray for Vec<T> where T: Hittable {
-    fn as_any(&self)->&dyn Any {
-        self as _
-    }
-
-    fn as_any_mut(&mut self)->&mut dyn Any {
-        self as _
-    }
-}
-
 impl<T> Hittable for Vec<T>
 where
-    T: Hittable,
+    T: BoundedHittable,
 {
     fn hit(&self, r: &Ray, range: RangeInclusive<f64>) -> Option<HitRecord<'_>> {
         let &start = range.start();
         let &end = range.end();
         self.iter()
-            .filter_map(|obj| obj.hit(r, start..=end))
+            .filter_map(|obj| {
+                (obj.is_aabbox_hit(r, start..=end))
+                    .then(|| obj.hit(r, start..=end))
+                    .flatten()
+            })
             .min_by(|a, b| a.get_t().total_cmp(&b.get_t()))
     }
 }

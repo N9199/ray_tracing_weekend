@@ -1,12 +1,14 @@
 use std::ops::RangeInclusive;
 
 use crate::{
-    hittable::{HitRecord, Hittable},
+    entities::Bounded,
+    hittable::{BoundedHittable, HitRecord, Hittable},
     material::Material,
     ray::Ray,
     vec3::Point3,
 };
 
+use super::AABBox;
 
 pub struct Sphere {
     pub center: Point3,
@@ -40,3 +42,18 @@ impl Hittable for Sphere {
         Some(HitRecord::new(r, t, outward_normal, self.mat_ptr.as_ref()))
     }
 }
+
+impl Bounded for Sphere {
+    fn get_aabbox(&self) -> AABBox {
+        AABBox::new(
+            self.center.get_x() - self.radius,
+            self.center.get_x() + self.radius,
+            self.center.get_y() - self.radius,
+            self.center.get_y() + self.radius,
+            self.center.get_z() - self.radius,
+            self.center.get_z() + self.radius,
+        )
+    }
+}
+
+impl BoundedHittable for Sphere {}

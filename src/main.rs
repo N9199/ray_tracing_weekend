@@ -130,18 +130,18 @@ fn random_f64_2<T: rand::Rng>(rng: &mut T) -> f64 {
 
 fn random_scene() -> HittableList {
     let mut world = HittableList::default();
-    let ground_material = Box::new(Lambertian::new(Colour::new(0.5, 0.5, 0.5)));
-    // world.add(Plane::new(
-    //     Point3::new(0., -0.01, 0.),
-    //     Vec3::new(0., 1., 0.),
-    //     ground_material,
-    // ));
+    let ground_material = Box::new(Lambertian::new(Colour::new(0.3, 0.3, 0.3)));
+    world.add(Plane::new(
+        Point3::new(0., -0.01, 0.),
+        Vec3::new(0., 1., 0.),
+        ground_material,
+    ));
 
-    world.add(Sphere {
-        center: Point3::new(0., -10000., 0.),
-        radius: 10000.,
-        mat_ptr: ground_material,
-    });
+    // world.add(Sphere {
+    //     center: Point3::new(0., -10000., 0.),
+    //     radius: 10000.,
+    //     mat_ptr: ground_material,
+    // });
 
     let material1 = Box::new(Dialectric::new(1.5));
     let mut rng = SmallRng::from_rng(thread_rng()).unwrap();

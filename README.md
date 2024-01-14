@@ -7,6 +7,7 @@ This was a quick (10hrs~) implementation of the concepts presented in [Ray Traci
   - More generally add support for more 3D objects
 - Make it more efficient
   - e.g. more parallelization
+- Actually use light sources
 
 
 [^1]: For example the use of Rayon for easy parallelization of sampling
