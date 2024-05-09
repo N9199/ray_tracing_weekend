@@ -1,6 +1,7 @@
 use rand::{distributions::Open01, prelude::Distribution};
 
 use core::ops::{Add, AddAssign, Div, Mul, MulAssign, Neg, Sub};
+use std::ops::Index;
 
 pub struct UnitSphere;
 
@@ -63,20 +64,20 @@ pub struct Vec3([f64; 3]);
 
 impl Vec3 {
     #[inline]
-    pub fn new(x: f64, y: f64, z: f64) -> Self {
+    pub const fn new(x: f64, y: f64, z: f64) -> Self {
         Self([x, y, z])
     }
 
     #[inline]
-    pub fn get_x(self) -> f64 {
+    pub const fn get_x(self) -> f64 {
         self.0[0]
     }
     #[inline]
-    pub fn get_y(self) -> f64 {
+    pub const fn get_y(self) -> f64 {
         self.0[1]
     }
     #[inline]
-    pub fn get_z(self) -> f64 {
+    pub const fn get_z(self) -> f64 {
         self.0[2]
     }
 
@@ -126,6 +127,11 @@ impl Vec3 {
         let r_out_perp = (self + other * cos_theta) * etai_over_etat;
         let r_out_parallel = other * (-(1. - r_out_perp.length_squared()).sqrt());
         r_out_perp + r_out_parallel
+    }
+
+    #[inline]
+    pub fn inverse(self) -> Self {
+        Self(self.0.map(f64::recip))
     }
 }
 
@@ -204,5 +210,13 @@ impl Div<f64> for Vec3 {
     #[inline]
     fn div(self, rhs: f64) -> Self::Output {
         Self([self.0[0] / rhs, self.0[1] / rhs, self.0[2] / rhs])
+    }
+}
+
+impl Index<usize> for Vec3 {
+    type Output = f64;
+
+    fn index(&self, index: usize) -> &Self::Output {
+        &self.0[index]
     }
 }

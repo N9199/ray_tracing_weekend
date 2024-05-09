@@ -1,4 +1,8 @@
-use std::ops::RangeInclusive;
+use std::{
+    f64::consts::{PI, TAU},
+    ops::{Div, RangeInclusive},
+    sync::Arc,
+};
 
 use crate::{
     entities::Bounded,
@@ -10,10 +14,37 @@ use crate::{
 
 use super::AABBox;
 
+#[derive(Debug)]
 pub struct Sphere {
-    pub center: Point3,
-    pub radius: f64,
-    pub mat_ptr: Box<dyn Material>,
+    center: Point3,
+    radius: f64,
+    mat_ptr: Arc<dyn Material>,
+    aabox: AABBox,
+}
+
+impl Sphere {
+    pub fn new(center: Point3, radius: f64, mat_ptr: Arc<dyn Material>) -> Self {
+        Sphere {
+            center,
+            radius,
+            mat_ptr,
+            aabox: AABBox::new(
+                center.get_x() - radius,
+                center.get_x() + radius,
+                center.get_y() - radius,
+                center.get_y() + radius,
+                center.get_z() - radius,
+                center.get_z() + radius,
+            ),
+        }
+    }
+
+    pub fn get_sphere_uv(point: Point3) -> (f64, f64) {
+        (
+            (-point.get_z()).atan2(point.get_x()).div(TAU),
+            point.get_y().acos().div(PI),
+        )
+    }
 }
 
 impl Hittable for Sphere {
@@ -39,20 +70,25 @@ impl Hittable for Sphere {
 
         let p = r.at(t);
         let outward_normal = (p - self.center) / self.radius;
-        Some(HitRecord::new(r, t, outward_normal, self.mat_ptr.as_ref()))
+        let (u, v) = Sphere::get_sphere_uv(outward_normal);
+        Some(HitRecord::new(
+            r,
+            t,
+            outward_normal,
+            u,
+            v,
+            self.mat_ptr.as_ref(),
+        ))
     }
 }
 
 impl Bounded for Sphere {
     fn get_aabbox(&self) -> AABBox {
-        AABBox::new(
-            self.center.get_x() - self.radius,
-            self.center.get_x() + self.radius,
-            self.center.get_y() - self.radius,
-            self.center.get_y() + self.radius,
-            self.center.get_z() - self.radius,
-            self.center.get_z() + self.radius,
-        )
+        self.aabox
+    }
+
+    fn get_surface_area(&self) -> f64 {
+        4. * PI * self.radius * self.radius
     }
 }
 

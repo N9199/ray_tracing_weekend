@@ -1,38 +1,46 @@
-use std::sync::Mutex;
+use std::{
+    fmt::Debug,
+    sync::{Arc, Mutex},
+};
 
-use rand::{distributions::Open01, rngs::SmallRng, Rng, SeedableRng, thread_rng};
+use rand::{distributions::Open01, rngs::SmallRng, thread_rng, Rng, SeedableRng};
 
 use crate::{
     hittable::HitRecord,
     ray::Ray,
+    texture::{SolidColour, Texture},
     vec3::{get_in_unit_sphere, get_unit_vec, Colour},
 };
 
-pub trait Material: Sync + Send {
+pub trait Material: Sync + Send + Debug {
     fn scatter(&self, ray_in: &Ray, rec: &HitRecord<'_>) -> Option<(Ray, Colour)>;
 }
 
 #[derive(Debug)]
 pub struct Lambertian {
-    albedo: Colour,
+    texture: Arc<dyn Texture>,
     rng: Mutex<SmallRng>,
 }
 
 impl Clone for Lambertian {
     fn clone(&self) -> Self {
         Self {
-            albedo: self.albedo,
+            texture: self.texture.clone(),
             rng: Mutex::new(SmallRng::from_rng(thread_rng()).unwrap()),
         }
     }
 }
 
 impl Lambertian {
-    pub fn new(albedo: Colour) -> Self {
+    pub fn new(texture: Arc<dyn Texture>) -> Self {
         Self {
-            albedo,
+            texture,
             rng: Mutex::new(SmallRng::from_rng(thread_rng()).unwrap()),
         }
+    }
+
+    pub fn new_with_colour(colour: Colour) -> Self {
+        Self::new(Arc::new(SolidColour(colour)))
     }
 }
 
@@ -43,7 +51,11 @@ impl Material for Lambertian {
         if scatter_direction.is_near_zero() {
             scatter_direction = rec.get_normal();
         }
-        Some((Ray::new(rec.get_p(), scatter_direction), self.albedo))
+        Some((
+            Ray::new(rec.get_p(), scatter_direction),
+            self.texture
+                .get_colour(rec.get_u(), rec.get_v(), &rec.get_p()),
+        ))
     }
 }
 
@@ -118,7 +130,7 @@ impl Dialectric {
 impl Material for Dialectric {
     fn scatter(&self, ray_in: &Ray, rec: &HitRecord<'_>) -> Option<(Ray, Colour)> {
         let refraction_ratio = if rec.is_front_face() {
-            1. / self.index_of_refraction
+            self.index_of_refraction.recip()
         } else {
             self.index_of_refraction
         };

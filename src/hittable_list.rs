@@ -1,145 +1,138 @@
-use std::{any::TypeId, collections::HashMap, ops::RangeInclusive};
+use std::{
+    any::{Any, TypeId},
+    collections::HashMap,
+    fmt::Debug,
+    ops::RangeInclusive,
+};
 
 use crate::{
+    entities::{get_axis, AABBox, AAPlane, Axis, Bounded, Plane},
     hittable::{BoundedHittable, HitRecord, Hittable},
     hittable_list::raw::RawHittableVec,
     ray::Ray,
 };
 
-mod raw {
-    use std::{marker::PhantomData, ops::RangeInclusive};
-
-    use crossbeam::atomic::AtomicCell;
-
-    use crate::{
-        entities::{AABBox, Bounded},
-        hittable::{BoundedHittable, HitRecord, Hittable},
-        ray::Ray,
-    };
-
-    pub struct RawHittableVec {
-        ptr: *mut u8,
-        len: usize,
-        cap: usize,
-        cached_aabox: AtomicCell<Option<AABBox>>,
-        hit: for<'a> fn(
-            *mut u8,
-            usize,
-            PhantomData<&'a ()>,
-            &Ray,
-            RangeInclusive<f64>,
-        ) -> Option<HitRecord<'a>>,
-        get_aabbox: fn(*mut u8, usize) -> AABBox,
-    }
-    // u8 is Send and Sync
-    unsafe impl Send for RawHittableVec {}
-    unsafe impl Sync for RawHittableVec {}
-
-    fn hit<'a, T>(
-        ptr: *mut u8,
-        len: usize,
-        _phantom: PhantomData<&'a ()>,
-        ray: &Ray,
-        range: RangeInclusive<f64>,
-    ) -> Option<HitRecord<'a>>
-    where
-        T: BoundedHittable,
-    {
-        let &start = range.start();
-        let &end = range.end();
-        unsafe { std::slice::from_raw_parts(ptr.cast_const().cast::<T>(), len) }
-            .iter()
-            .filter_map(|obj| {
-                (obj.is_aabbox_hit(ray, start..=end))
-                    .then(|| obj.hit(ray, start..=end))
-                    .flatten()
-            })
-            .min_by(|a, b| a.get_t().total_cmp(&b.get_t()))
-    }
-
-    fn get_aabbox<T>(ptr: *mut u8, len: usize) -> AABBox
-    where
-        T: Bounded,
-    {
-        unsafe { std::slice::from_raw_parts(ptr.cast_const().cast::<T>(), len) }
-            .iter()
-            .map(|obj| obj.get_aabbox())
-            .reduce(|mut acc, e| {
-                acc.enclose(e);
-                acc
-            })
-            .expect("Vec shouldn't be empty")
-    }
-
-    impl RawHittableVec {
-        pub fn new<T>() -> Self
-        where
-            T: BoundedHittable,
-        {
-            let mut vec = Vec::<T>::new();
-            let ptr = vec.as_mut_ptr();
-            let len = vec.len();
-            let cap = vec.capacity();
-            std::mem::forget(vec);
-            Self {
-                ptr: ptr.cast(),
-                len,
-                cap,
-                hit: hit::<T>,
-                get_aabbox: get_aabbox::<T>,
-                cached_aabox: AtomicCell::new(None),
-            }
-        }
-
-        pub unsafe fn add<T: BoundedHittable>(&mut self, object: T) {
-            let mut vec = unsafe { Vec::from_raw_parts(self.ptr.cast(), self.len, self.cap) };
-            vec.push(object);
-            self.ptr = vec.as_mut_ptr().cast();
-            self.len = vec.len();
-            self.cap = vec.capacity();
-            std::mem::forget(vec);
-            self.cached_aabox.store(None);
-        }
-    }
-    impl Hittable for RawHittableVec {
-        fn hit(&self, r: &Ray, range: RangeInclusive<f64>) -> Option<HitRecord<'_>> {
-            (self.hit)(self.ptr, self.len, PhantomData, r, range)
-        }
-    }
-
-    impl Bounded for RawHittableVec {
-        fn get_aabbox(&self) -> AABBox {
-            if let Some(aabox) = self.cached_aabox.load() {
-                return aabox;
-            }
-            let aabox = (self.get_aabbox)(self.ptr, self.len);
-            self.cached_aabox.store(Some(aabox));
-            aabox
-        }
-    }
-
-    impl BoundedHittable for RawHittableVec {}
+mod raw;
+#[derive(Default, Debug)]
+pub struct HittableList {
+    values: HashMap<TypeId, RawHittableVec>,
+    len: usize,
+    aabox: Option<AABBox>,
 }
-#[derive(Default)]
-pub struct HittableList(HashMap<TypeId, RawHittableVec>);
 
 impl HittableList {
     pub fn clear(&mut self) {
-        self.0.clear();
+        self.values.clear();
+        self.len = 0;
+        self.aabox = None;
+    }
+
+    pub fn len(&self) -> usize {
+        self.len
     }
 
     pub fn add<T>(&mut self, object: T)
     where
-        T: BoundedHittable,
+        T: BoundedHittable + Debug + Any,
     {
+        self.aabox
+            .get_or_insert_with(|| object.get_aabbox())
+            .enclose(&object);
         let key = object.type_id();
         // SAFETY: as the key is the TypeId of type T, it's safe to use add
         unsafe {
-            self.0
+            self.values
                 .entry(key)
                 .or_insert(RawHittableVec::new::<T>())
                 .add(object);
         }
+        self.len += 1;
+    }
+
+    pub fn split_by(self, plane: AAPlane) -> (Self, Self) {
+        let (mut left, mut right) = (Self::default(), Self::default());
+        self.values.into_iter().for_each(|(id, obj)| {
+            let (obj_left, obj_right) = obj.split_by(plane);
+            if obj_right.len() > 0 {
+                let aabox = obj_right.get_aabbox();
+                right.len += obj_right.len();
+                right.values.insert(id, obj_right);
+                right.aabox.get_or_insert(aabox.clone()).enclose(&aabox);
+            }
+            if obj_left.len() > 0 {
+                let aabox = obj_left.get_aabbox();
+                left.len += obj_left.len();
+                left.values.insert(id, obj_left);
+                left.aabox.get_or_insert(aabox.clone()).enclose(&aabox);
+            }
+        });
+        (right, left)
+    }
+
+    pub fn split_at_half(self) -> (Self, Self, AAPlane) {
+        if self.len() == 0 {
+            return (
+                Self::default(),
+                Self::default(),
+                AAPlane {
+                    coord: 0.,
+                    axis: Axis::X,
+                },
+            );
+        }
+        // First find best axis
+        let mut best_separator = (usize::MAX, f64::INFINITY, Axis::X, 0.);
+        for axis in get_axis() {
+            let mut temp_vec = self
+                .iter_aaboxes()
+                .map(|aabox| aabox.axis(axis))
+                .collect::<Vec<_>>();
+            temp_vec.sort_by(|r1, r2| {
+                r1.start()
+                    .total_cmp(r2.start())
+                    .then(r1.end().total_cmp(r2.end()))
+            });
+            // partition_point < temp_vec.len()/2
+            // as we search for the first element which is strictly less than the element at temp_vec.len()/2
+            let partition_point = temp_vec.partition_point(|v| {
+                v.start()
+                    .total_cmp(temp_vec[temp_vec.len() / 2].start())
+                    .is_lt()
+            });
+            let bbox_axis_size = temp_vec.last().unwrap().end() - temp_vec.first().unwrap().start();
+            // Should be at least 1
+            dbg!(
+                best_separator,
+                bbox_axis_size,
+                partition_point,
+                axis,
+                temp_vec.len(),
+                &temp_vec
+            );
+            if (best_separator.0, -best_separator.1)
+                > (temp_vec.len() - 2 * partition_point, -bbox_axis_size)
+            {
+                best_separator = (
+                    temp_vec.len() - 2 * partition_point,
+                    bbox_axis_size,
+                    axis,
+                    *temp_vec[temp_vec.len() / 2].start(),
+                )
+            }
+        }
+        let plane = AAPlane {
+            coord: best_separator.3,
+            axis: best_separator.2,
+        };
+        let len = self.len();
+        let (left, right) = self.split_by(plane);
+        debug_assert_ne!(left.len(), len);
+        debug_assert_ne!(right.len(), len);
+        (left, right, plane)
+    }
+
+    pub fn iter_aaboxes<'a>(&'a self) -> impl Iterator<Item = AABBox> + 'a {
+        self.values.values().flat_map(|v| v.iter_aaboxes())
     }
 }
 
@@ -147,14 +140,29 @@ impl Hittable for HittableList {
     fn hit(&self, r: &Ray, range: RangeInclusive<f64>) -> Option<HitRecord<'_>> {
         let &start = range.start();
         let &end = range.end();
-        self.0
+        self.values
             .iter()
             .filter_map(|(_, obj)| {
-                obj.hit(r, start..=end)
-                // (obj.is_aabbox_hit(r, start..=end))
-                //     .then(|| obj.hit(r, start..=end))
-                //     .flatten()
+                // obj.hit(r, start..=end)
+                (obj.is_aabbox_hit(r, start..=end))
+                    .then(|| obj.hit(r, start..=end))
+                    .flatten()
             })
             .min_by(|a, b| a.get_t().total_cmp(&b.get_t()))
     }
 }
+
+impl Bounded for HittableList {
+    fn get_aabbox(&self) -> AABBox {
+        self.aabox.unwrap_or(AABBox::new(0., 0., 0., 0., 0., 0.))
+    }
+
+    fn get_surface_area(&self) -> f64 {
+        self.values
+            .values()
+            .map(RawHittableVec::get_surface_area)
+            .sum()
+    }
+}
+
+impl BoundedHittable for HittableList {}

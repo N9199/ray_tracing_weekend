@@ -4,25 +4,18 @@ use std::{
 };
 
 use itertools::iproduct;
-use kdam::{par_tqdm, tqdm};
-use rand::{
-    distributions::{Open01, Uniform},
-    rngs::SmallRng,
-    thread_rng, SeedableRng,
-};
-use rayon::prelude::*;
+use kdam::par_tqdm;
+use rand::{rngs::SmallRng, thread_rng, SeedableRng};
+use rayon::iter::{IntoParallelIterator as _, ParallelIterator as _};
+use utils::{checkered_spheres, plane_scene, random_f64, ray_colour, simple_scene};
 
 use crate::{
     camera::Camera,
     config::{Config, Image},
-    entities::{Plane, Sphere},
-    hittable::Hittable,
-    hittable_list::HittableList,
-    material::{Dialectric, Lambertian, Material, Metal},
-    ray::Ray,
     vec3::{Colour, Point3, SampledColour, Vec3},
 };
 
+mod bvh;
 mod camera;
 mod config;
 mod entities;
@@ -30,6 +23,10 @@ mod hittable;
 mod hittable_list;
 mod material;
 mod ray;
+#[cfg(test)]
+mod test;
+mod texture;
+mod utils;
 mod vec3;
 
 fn main() {
@@ -44,7 +41,8 @@ fn main() {
     } = config.get_image().unwrap();
 
     // World
-    let world = random_scene();
+    // let world = simple_scene();
+    let world = simple_scene();
 
     // Camera
     let lookfrom = Point3::new(-13., 2., 3.);
@@ -81,7 +79,7 @@ fn main() {
         let image_width = (image_width - 1) as f64;
         let image_height = (image_height - 1) as f64;
         *v = (0..samples_per_pixel)
-            .into_par_iter()
+            // .into_par_iter()
             .map(|_| {
                 let mut rng = SmallRng::from_rng(thread_rng()).unwrap();
                 let u = (i + random_f64(&mut rng)) / image_width;
@@ -89,7 +87,7 @@ fn main() {
                 let r = cam.get_ray(u, v, &mut rng);
                 ray_colour(&r, &world, max_depth as _)
             })
-            .reduce(Colour::default, |acc, val| acc + val);
+            .fold(Colour::default(), |acc, val| acc + val);
     });
 
     let mut file = BufWriter::new(File::create("image.ppm").unwrap());
@@ -102,106 +100,4 @@ fn main() {
         ))
         .unwrap();
     }
-}
-
-fn ray_colour(r: &Ray, world: &dyn Hittable, depth: u32) -> Colour {
-    if depth == 0 {
-        return Colour::default();
-    }
-    if let Some(rec) = world.hit(r, (f64::EPSILON)..=f64::INFINITY) {
-        if let Some((scattered, attenuation)) = rec.get_material().scatter(r, &rec) {
-            return attenuation * ray_colour(&scattered, world, depth - 1);
-        }
-        return Colour::default();
-    }
-    let unit_direction = r.get_direction().unit_vec();
-    let t = 0.5 * (unit_direction.get_y() + 1.);
-    (Vec3::new(1., 1., 1.) * (1. - t) + Vec3::new(0.5, 0.7, 1.) * t).into()
-}
-
-fn random_f64<T: rand::Rng>(rng: &mut T) -> f64 {
-    rng.sample(Open01)
-}
-
-fn random_f64_2<T: rand::Rng>(rng: &mut T) -> f64 {
-    let dist = Uniform::new_inclusive(0.5, 1.);
-    rng.sample(dist)
-}
-
-fn random_scene() -> HittableList {
-    let mut world = HittableList::default();
-    let ground_material = Box::new(Lambertian::new(Colour::new(0.3, 0.3, 0.3)));
-    world.add(Plane::new(
-        Point3::new(0., -0.01, 0.),
-        Vec3::new(0., 1., 0.),
-        ground_material,
-    ));
-
-    // world.add(Sphere {
-    //     center: Point3::new(0., -10000., 0.),
-    //     radius: 10000.,
-    //     mat_ptr: ground_material,
-    // });
-
-    let material1 = Box::new(Dialectric::new(1.5));
-    let mut rng = SmallRng::from_rng(thread_rng()).unwrap();
-    for a in (-11)..11 {
-        for b in (-11)..11 {
-            let choose_mat: f64 = random_f64(&mut rng);
-            let center = Point3::new(
-                (a) as f64 + 0.9 * random_f64(&mut rng),
-                0.2,
-                (b) as f64 + 0.9 * random_f64(&mut rng),
-            );
-            if (center - Point3::new(4., 0.2, 0.)).length() > 0.9 {
-                let mat: Box<dyn Material> = if choose_mat < 0.8 {
-                    let albedo = Colour::new(
-                        random_f64(&mut rng),
-                        random_f64(&mut rng),
-                        random_f64(&mut rng),
-                    ) * Colour::new(
-                        random_f64(&mut rng),
-                        random_f64(&mut rng),
-                        random_f64(&mut rng),
-                    );
-                    Box::new(Lambertian::new(albedo))
-                } else if choose_mat < 0.95 {
-                    let albedo = Colour::new(
-                        random_f64_2(&mut rng),
-                        random_f64_2(&mut rng),
-                        random_f64_2(&mut rng),
-                    );
-                    let fuzz = 1. - random_f64_2(&mut rng);
-                    Box::new(Metal::new(albedo, fuzz))
-                } else {
-                    material1.clone()
-                };
-                world.add(Sphere {
-                    center,
-                    radius: 0.2,
-                    mat_ptr: mat,
-                });
-            }
-        }
-    }
-    let material2 = Box::new(Lambertian::new(Colour::new(0.4, 0.2, 0.1)));
-    let material3 = Box::new(Metal::new(Colour::new(0.7, 0.6, 0.5), 0.));
-
-    world.add(Sphere {
-        center: Point3::new(0., 1., 0.),
-        radius: 1.,
-        mat_ptr: material1,
-    });
-    world.add(Sphere {
-        center: Point3::new(-4., 1., 0.),
-        radius: 1.,
-        mat_ptr: material2,
-    });
-    world.add(Sphere {
-        center: Point3::new(4., 1., 0.),
-        radius: 1.,
-        mat_ptr: material3,
-    });
-
-    world
 }
