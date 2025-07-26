@@ -3,3 +3,13 @@
 
 # VSCode
 .vscode/
+
+# Outputs
+image.ppm
+image.png
+miri.txt
+test.log
+flamegraph.svg
+
+# MacOS
+.DS_Store

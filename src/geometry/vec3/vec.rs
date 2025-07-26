@@ -1,64 +1,12 @@
-use rand::{distributions::Open01, prelude::Distribution};
-
 use core::ops::{Add, AddAssign, Div, Mul, MulAssign, Neg, Sub};
-use std::ops::Index;
+use std::{
+    iter::Sum,
+    ops::{Index, IndexMut},
+};
 
-pub struct UnitSphere;
+use crate::entities::{AABBox, Bounded};
 
-impl Distribution<Vec3> for UnitSphere {
-    #[inline]
-    fn sample<R: rand::Rng + ?Sized>(&self, rng: &mut R) -> Vec3 {
-        // let theta = rng.sample(Uniform::new_inclusive(0., 2. * core::f64::consts::PI));
-        // let closed01 = Uniform::<f64>::new_inclusive(0., 1.);
-        // let phi = (2. * rng.sample(closed01) - 1.).acos();
-        // let r = rng.sample(closed01).cbrt();
-        // Vec3::new(
-        //     r * theta.cos() * phi.sin(),
-        //     r * theta.sin() * phi.sin(),
-        //     r * phi.cos(),
-        // )
-        loop {
-            let out = Vec3::new(rng.sample(Open01), rng.sample(Open01), rng.sample(Open01));
-            if out.length_squared() < 1. {
-                return out;
-            }
-        }
-    }
-}
-
-pub struct UnitDisk;
-
-impl Distribution<Vec3> for UnitDisk {
-    #[inline]
-    fn sample<R: rand::Rng + ?Sized>(&self, rng: &mut R) -> Vec3 {
-        // let theta = rng.sample(Uniform::new_inclusive(0., 2. * core::f64::consts::PI));
-        // let closed01 = Uniform::<f64>::new_inclusive(0., 1.);
-        // let r = rng.sample(closed01).sqrt();
-        // Vec3::new(r * theta.cos(), r * theta.sin(), 0.)
-        loop {
-            let out = Vec3::new(rng.sample(Open01), rng.sample(Open01), 0.);
-            if out.length_squared() < 1. {
-                return out;
-            }
-        }
-    }
-}
-
-#[inline]
-pub fn get_unit_vec<T: rand::Rng>(rng: &mut T) -> Vec3 {
-    get_in_unit_sphere(rng).unit_vec()
-}
-
-#[inline]
-pub fn get_in_unit_sphere<T: rand::Rng>(rng: &mut T) -> Vec3 {
-    rng.sample(UnitSphere)
-}
-
-#[inline]
-pub fn get_in_unit_disk<T: rand::Rng>(rng: &mut T) -> Vec3 {
-    rng.sample(UnitDisk)
-}
-
+#[repr(C)]
 #[derive(Debug, Default, Clone, Copy)]
 pub struct Vec3([f64; 3]);
 
@@ -66,6 +14,16 @@ impl Vec3 {
     #[inline]
     pub const fn new(x: f64, y: f64, z: f64) -> Self {
         Self([x, y, z])
+    }
+
+    #[inline]
+    pub const fn new_array(inner: [f64; 3]) -> Self {
+        Self(inner)
+    }
+
+    #[inline]
+    pub const fn inner(self) -> [f64; 3] {
+        self.0
     }
 
     #[inline]
@@ -218,5 +176,33 @@ impl Index<usize> for Vec3 {
 
     fn index(&self, index: usize) -> &Self::Output {
         &self.0[index]
+    }
+}
+
+impl IndexMut<usize> for Vec3 {
+    fn index_mut(&mut self, index: usize) -> &mut Self::Output {
+        &mut self.0[index]
+    }
+}
+
+impl Bounded for Vec3 {
+    fn get_aabbox(&self) -> AABBox {
+        AABBox::from(*self)
+    }
+
+    fn get_surface_area(&self) -> f64 {
+        0.
+    }
+}
+
+impl From<[f64; 3]> for Vec3 {
+    fn from(value: [f64; 3]) -> Self {
+        Self(value)
+    }
+}
+
+impl Sum for Vec3 {
+    fn sum<I: Iterator<Item = Self>>(iter: I) -> Self {
+        iter.fold(Vec3::default(), |accum, other| accum + other)
     }
 }

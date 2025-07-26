@@ -4,10 +4,10 @@ use criterion::{criterion_group, criterion_main, Criterion};
 use rand::{rngs::SmallRng, Rng, SeedableRng};
 use ray_tracing_weekend::{
     entities::Sphere,
+    geometry::vec3::{Colour, Point3, Vec3},
     hittable::Hittable,
     material::Lambertian,
     ray::Ray,
-    vec3::{Colour, Point3, Vec3},
 };
 
 fn sphere_hits(c: &mut Criterion) {

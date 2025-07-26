@@ -1,126 +1,112 @@
-use kdam::tqdm;
-use rand::{rngs::SmallRng, thread_rng, SeedableRng as _};
+use std::path::Path;
 
 use crate::{
-    camera::Camera,
-    utils::{plane_scene, random_f64, ray_colour, simple_scene},
-    vec3::{Colour, Point3, Vec3},
+    camera::CameraBuilder,
+    geometry::vec3::{Point3, Vec3},
+    scenes::{cornell_box, debugging_scene, perlin_spheres, plane, simple, simple_light},
 };
 
 #[test]
-fn plane_test(){
-    let image_width = 3;
-    let image_height = 2;
-    let aspect_ratio = image_height as f64 / image_width as f64;
-    let samples_per_pixel = 10;
-    let max_depth = 3;
-
+fn plane_test() {
     // World
-    let world = plane_scene();
-    dbg!(&world);
+    let (world, lights, _) = plane();
+    // dbg!(world.as_ref() as _);
     // Camera
-    let lookfrom = Point3::new(-13., 2., 3.);
-    let lookat = Point3::new(0., 0., 0.);
-    let vup = Vec3::new(0., 1., 0.);
-    let dist_to_focus = 10.;
-    let aperture = 0.1;
-    let cam = Camera::new(
-        lookfrom,
-        lookat,
-        vup,
-        20.,
-        aspect_ratio,
-        aperture,
-        dist_to_focus,
-    );
+    let cam = CameraBuilder::new()
+        .with_image_width(3)
+        .with_image_height(2)
+        .with_samples_per_pixel(10)
+        .with_max_depth(3)
+        .with_lookfrom(Point3::new(-13., 2., 3.))
+        .with_lookat(Point3::new(0., 0., 0.))
+        .with_vup(Vec3::new(0., 1., 0.))
+        .with_focus_dist(10.)
+        .build();
 
     // Render
-    let mut out: Vec<Vec<_>> = (0..image_height)
-        .map(|_| (0..image_width).map(|_| Colour::default()).collect())
-        .collect();
-    let process: Vec<_> = out
-        .iter_mut()
-        .enumerate()
-        .flat_map(|(j, vec)| {
-            vec.iter_mut()
-                .enumerate()
-                .map(move |(i, v)| (j as u32, i as u32, v))
-        })
-        .collect();
-    tqdm!(process.into_iter()).for_each(|(j, i, v)| {
-        let i = (i) as f64;
-        let j = (j) as f64;
-        let image_width = (image_width - 1) as f64;
-        let image_height = (image_height - 1) as f64;
-        *v = (0..samples_per_pixel)
-            // .into_par_iter()
-            .map(|_| {
-                let mut rng = SmallRng::from_rng(thread_rng()).unwrap();
-                let u = (i + random_f64(&mut rng)) / image_width;
-                let v = (j + random_f64(&mut rng)) / image_height;
-                let r = cam.get_ray(u, v, &mut rng);
-                ray_colour(&r, &world, max_depth as _)
-            })
-            .fold(Colour::default(), |acc, val| acc + val);
-    });
+    cam.render_debug::<&Path>(world.as_ref(), lights.as_ref(), None);
 }
 
 #[test]
 fn small_test() {
-    let image_width = 3;
-    let image_height = 2;
-    let aspect_ratio = image_height as f64 / image_width as f64;
-    let samples_per_pixel = 10;
-    let max_depth = 3;
-
     // World
-    let world = simple_scene();
-    dbg!(&world);
-    dbg!(world.depth());
-    dbg!(world.node_count());
+    let (world, lights, _) = simple();
+    // dbg!(world.as_ref() as _);
+    // dbg!(world.depth());
+    // dbg!(world.node_count());
     // Camera
-    let lookfrom = Point3::new(-13., 2., 3.);
-    let lookat = Point3::new(0., 0., 0.);
-    let vup = Vec3::new(0., 1., 0.);
-    let dist_to_focus = 10.;
-    let aperture = 0.1;
-    let cam = Camera::new(
-        lookfrom,
-        lookat,
-        vup,
-        20.,
-        aspect_ratio,
-        aperture,
-        dist_to_focus,
-    );
+    let cam = CameraBuilder::new()
+        .with_image_width(3)
+        .with_image_height(2)
+        .with_samples_per_pixel(10)
+        .with_max_depth(3)
+        .with_lookfrom(Point3::new(-13., 2., 3.))
+        .with_lookat(Point3::new(0., 0., 0.))
+        .with_vup(Vec3::new(0., 1., 0.))
+        .with_focus_dist(10.)
+        .build();
 
     // Render
-    let mut out: Vec<Vec<_>> = (0..image_height)
-        .map(|_| (0..image_width).map(|_| Colour::default()).collect())
-        .collect();
-    let process: Vec<_> = out
-        .iter_mut()
-        .enumerate()
-        .flat_map(|(j, vec)| {
-            vec.iter_mut()
-                .enumerate()
-                .map(move |(i, v)| (j as u32, i as u32, v))
-        })
-        .collect();
-    tqdm!(process.into_iter()).for_each(|(j, i, v)| {
-        let i = (i) as f64;
-        let j = (j) as f64;
-        let image_width = (image_width - 1) as f64;
-        let image_height = (image_height - 1) as f64;
-        *v = (0..samples_per_pixel)
-            // .into_par_iter()
-            .map(|_| {
-                let mut rng = SmallRng::from_rng(thread_rng()).unwrap();
-                let u = (i + random_f64(&mut rng)) / image_width;
-                let v = (j + random_f64(&mut rng)) / image_height;
-                let r = cam.get_ray(u, v, &mut rng);
-                ray_colour(&r, &world, max_depth as _)
-            })
-            .fold(Colour::default(), |acc, val| acc + val);
-    });
+    cam.render_debug::<&Path>(world.as_ref(), lights.as_ref(), None);
+}
+
+#[test]
+fn small_light_test() {
+    // World
+    let (world, lights, _) = simple_light();
+    // dbg!(world.as_ref() as _);
+    // Camera
+    let lookfrom = Point3::new(4., 2., 10.);
+    let lookat = Point3::new(4., 2., -2.);
+    let cam = CameraBuilder::new()
+        .with_image_width(3)
+        .with_image_height(2)
+        .with_samples_per_pixel(10)
+        .with_max_depth(5)
+        .with_lookfrom(lookfrom)
+        .with_lookat(lookat)
+        .with_vup(Vec3::new(0., 1., 0.))
+        .with_focus_dist(4.)
+        .build();
+
+    // Render
+    cam.render_debug::<&Path>(world.as_ref(), lights.as_ref(), None);
+}
+
+#[test]
+fn debugging_test() {
+    // World
+    let (world, lights, cam) = debugging_scene();
+    // dbg!(world.as_ref() as _);
+    // Camera
+    let lookfrom = Point3::new(0., 20., 0.);
+    let lookat = Point3::new(0., 0., 0.);
+    let cam = cam
+        .with_image_width(3)
+        .with_image_height(2)
+        .with_samples_per_pixel(50)
+        .with_max_depth(10)
+        .with_vfov(40.)
+        .build();
+
+    // Render
+    cam.render_debug::<&Path>(world.as_ref(), lights.as_ref(), None);
+}
+
+#[test]
+fn cornell_box_test() {
+    // World
+    let (world, lights, cam) = cornell_box();
+    dbg!(world.as_ref(), lights.as_ref());
+    // Camera
+    let cam = cam
+        .with_image_width(3)
+        .with_image_height(2)
+        .with_samples_per_pixel(50)
+        .with_max_depth(10)
+        .with_vfov(40.)
+        .build();
+
+    // Render
+    cam.render_debug::<&Path>(world.as_ref(), lights.as_ref(), None);
 }
