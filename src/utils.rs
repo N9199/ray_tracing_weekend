@@ -1,22 +1,3 @@
-use std::sync::Arc;
-
-use rand::{
-    distributions::{Open01, Uniform},
-    rngs::SmallRng,
-    thread_rng, SeedableRng,
-};
-
-use crate::{
-    bvh::BoundedVolumeHierarchy,
-    entities::{Plane, Sphere},
-    hittable::{BoundedHittable, Hittable},
-    hittable_list::HittableList,
-    material::{Dialectric, Lambertian, Material, Metal},
-    ray::Ray,
-    texture::CheckerTexture,
-    vec3::{Colour, Point3, Vec3},
-};
-
 pub mod slice {
     use std::fmt::Debug;
 
@@ -67,10 +48,7 @@ pub mod slice {
             unsafe { std::slice::from_raw_parts_mut(self.ptr, self.len) }
                 .iter()
                 .map(|obj| obj.get_aabbox())
-                .reduce(|mut acc, e| {
-                    acc.enclose(&e);
-                    acc
-                })
+                .reduce(|acc, e| acc.enclose(&e))
                 .expect("Slice shouldn't be empty")
         }
 
@@ -91,13 +69,18 @@ pub mod slice {
             r: &crate::ray::Ray,
             range: std::ops::RangeInclusive<f64>,
         ) -> Option<crate::hittable::HitRecord<'_>> {
+            // dbg!("Slice");
+            // dbg!(self);
             let &start = range.start();
             let &end = range.end();
-            unsafe { std::slice::from_raw_parts_mut(self.ptr, self.len) }
+            unsafe { std::slice::from_raw_parts(self.ptr.cast_const(), self.len) }
                 .iter()
                 .filter_map(|obj| {
                     (obj.is_aabbox_hit(r, start..=end))
-                        .then(|| obj.hit(r, start..=end))
+                        .then(|| {
+                            // dbg!(r);
+                            obj.hit(r, start..=end)
+                        })
                         .flatten()
                 })
                 .min_by(|a, b| a.get_t().total_cmp(&b.get_t()))
@@ -105,121 +88,84 @@ pub mod slice {
     }
 }
 
-pub fn ray_colour(r: &Ray, world: &dyn Hittable, depth: u32) -> Colour {
-    if depth == 0 {
-        return Colour::default();
+pub mod random_utils {
+    use std::f64::consts::PI;
+
+    use rand::{
+        distributions::{Open01, Standard, Uniform},
+        prelude::Distribution,
+        seq::SliceRandom,
+    };
+
+    use crate::geometry::vec3::Vec3;
+
+    #[inline]
+    pub fn random_f64_2<T: rand::Rng + ?Sized>(rng: &mut T) -> f64 {
+        let dist = Uniform::new_inclusive(0.5, 1.);
+        rng.sample(dist)
     }
-    if let Some(rec) = world.hit(r, (f64::EPSILON)..=f64::INFINITY) {
-        if let Some((scattered, attenuation)) = rec.get_material().scatter(r, &rec) {
-            return attenuation * ray_colour(&scattered, world, depth - 1);
-        }
-        return Colour::default();
-    }
-    let unit_direction = r.get_direction().unit_vec();
-    let t = 0.5 * (unit_direction.get_y() + 1.);
-    (Vec3::new(1., 1., 1.) * (1. - t) + Vec3::new(0.5, 0.7, 1.) * t).into()
-}
 
-pub fn random_f64<T: rand::Rng>(rng: &mut T) -> f64 {
-    rng.sample(Open01)
-}
+    pub struct UnitSphere;
 
-fn random_f64_2<T: rand::Rng>(rng: &mut T) -> f64 {
-    let dist = Uniform::new_inclusive(0.5, 1.);
-    rng.sample(dist)
-}
-
-pub fn plane_scene() -> impl BoundedHittable {
-    let mut world = HittableList::default();
-    let checker = Arc::new(Lambertian::new(Arc::new(CheckerTexture::new_with_colours(
-        Colour::new(0.2, 0.3, 0.1),
-        Colour::new(0.9, 0.9, 0.9),
-        0.32,
-    ))));
-
-    world.add(Plane::new(
-        Point3::new(0., 0., 0.),
-        Vec3::new(0., 1., 0.),
-        checker,
-    ));
-
-    world
-}
-
-pub fn checkered_spheres() -> impl BoundedHittable {
-    let mut world = HittableList::default();
-
-    let checker = Arc::new(Lambertian::new(Arc::new(CheckerTexture::new_with_colours(
-        Colour::new(0.2, 0.3, 0.1),
-        Colour::new(0.9, 0.9, 0.9),
-        0.01,
-    ))));
-
-    world.add(Sphere::new(Point3::new(0., -10., 0.), 10., checker.clone()));
-    world.add(Sphere::new(Point3::new(0., 10., 0.), 10., checker.clone()));
-
-    world
-}
-
-pub fn simple_scene() -> BoundedVolumeHierarchy {
-    let mut world = HittableList::default();
-    let ground_material = Arc::new(Lambertian::new_with_colour(Colour::new(0.9, 0.9, 0.9)));
-    let checker = Arc::new(Lambertian::new(Arc::new(CheckerTexture::new_with_colours(
-        Colour::new(0.2, 0.3, 0.1),
-        Colour::new(0.9, 0.9, 0.9),
-        0.32,
-    ))));
-
-    world.add(Plane::new(
-        Point3::new(0., 0., 0.),
-        Vec3::new(0., 1., 0.),
-        checker,
-    ));
-
-    let material1 = Arc::new(Dialectric::new(1.5));
-    let mut rng = SmallRng::from_rng(thread_rng()).unwrap();
-    const N: isize = 11;
-    for a in (-N)..N {
-        for b in (-N)..N {
-            let choose_mat: f64 = random_f64(&mut rng);
-            let center = Point3::new(
-                (a) as f64 + 0.9 * random_f64(&mut rng),
-                0.2,
-                (b) as f64 + 0.9 * random_f64(&mut rng),
-            );
-            if (center - Point3::new(4., 0.2, 0.)).length() > 0.9 {
-                let mat: Arc<dyn Material> = if choose_mat < 0.8 {
-                    let albedo = Colour::new(
-                        random_f64(&mut rng),
-                        random_f64(&mut rng),
-                        random_f64(&mut rng),
-                    ) * Colour::new(
-                        random_f64(&mut rng),
-                        random_f64(&mut rng),
-                        random_f64(&mut rng),
-                    );
-                    Arc::new(Lambertian::new_with_colour(albedo))
-                } else if choose_mat < 0.95 {
-                    let albedo = Colour::new(
-                        random_f64_2(&mut rng),
-                        random_f64_2(&mut rng),
-                        random_f64_2(&mut rng),
-                    );
-                    let fuzz = 1. - random_f64_2(&mut rng);
-                    Arc::new(Metal::new(albedo, fuzz))
-                } else {
-                    material1.clone()
-                };
-                world.add(Sphere::new(center, 0.2, mat));
+    impl Distribution<Vec3> for UnitSphere {
+        #[inline]
+        fn sample<R: rand::Rng + ?Sized>(&self, rng: &mut R) -> Vec3 {
+            // let theta = rng.sample(Uniform::new_inclusive(0., 2. * core::f64::consts::PI));
+            // let closed01 = Uniform::<f64>::new_inclusive(0., 1.);
+            // let phi = (2. * rng.sample(closed01) - 1.).acos();
+            // let r = rng.sample(closed01).cbrt();
+            // Vec3::new(
+            //     r * theta.cos() * phi.sin(),
+            //     r * theta.sin() * phi.sin(),
+            //     r * phi.cos(),
+            // )
+            loop {
+                let mut inner = [(); 3].map(|_| 2. * rng.sample::<f64, _>(Standard) - 1.);
+                inner.shuffle(rng);
+                let out = Vec3::from(inner);
+                if out.length_squared() < 1. {
+                    return out;
+                }
             }
         }
     }
-    let material2 = Arc::new(Lambertian::new_with_colour(Colour::new(0.4, 0.2, 0.1)));
-    let material3 = Arc::new(Metal::new(Colour::new(0.7, 0.6, 0.5), 0.));
 
-    world.add(Sphere::new(Point3::new(0., 1., 0.), 1., material1));
-    world.add(Sphere::new(Point3::new(-4., 1., 0.), 1., material2));
-    world.add(Sphere::new(Point3::new(4., 1., 0.), 1., material3));
+    pub struct UnitDisk;
 
-    BoundedVolumeHierarchy::from(world)
+    impl Distribution<Vec3> for UnitDisk {
+        #[inline]
+        fn sample<R: rand::Rng + ?Sized>(&self, rng: &mut R) -> Vec3 {
+            // let theta = rng.sample(Uniform::new_inclusive(0., 2. * core::f64::consts::PI));
+            // let closed01 = Uniform::<f64>::new_inclusive(0., 1.);
+            // let r = rng.sample(closed01).sqrt();
+            // Vec3::new(r * theta.cos(), r * theta.sin(), 0.)
+            loop {
+                let out = Vec3::new(
+                    2. * rng.sample::<f64, _>(Standard) - 1.,
+                    0.,
+                    2. * rng.sample::<f64, _>(Standard) - 1.,
+                );
+                if out.length_squared() < 1. {
+                    return out;
+                }
+            }
+        }
+    }
+
+    pub struct CosineWeightedHemisphere;
+
+    impl Distribution<Vec3> for CosineWeightedHemisphere {
+        #[inline]
+        fn sample<R: rand::Rng + ?Sized>(&self, rng: &mut R) -> Vec3 {
+            let r1 = rng.sample::<f64, _>(Standard);
+            let r2 = rng.sample::<f64, _>(Standard);
+
+            let phi = 2. * PI * r1;
+            let x = phi.cos() * r2.sqrt();
+            let y = phi.sin() * r2.sqrt();
+            let z = (1. - r2).sqrt();
+
+            Vec3::new(x, y, z)
+        }
+    }
 }

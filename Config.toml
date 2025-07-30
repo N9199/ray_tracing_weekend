@@ -1,5 +1,11 @@
+# [image]
+# image_width = 1200
+# image_height = 1200
+# samples_per_pixel = 500
+# max_depth = 75
+
 [image]
-image_width = 1200
-image_height = 800
-samples_per_pixel = 500
-max_depth = 6
+image_width = 400
+image_height = 400
+samples_per_pixel = 1000
+max_depth = 50

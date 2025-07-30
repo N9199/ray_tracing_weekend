@@ -1,35 +1,70 @@
-use std::{
-    fs::{read_to_string, File},
-    io::{BufWriter, Write},
+#![warn(clippy::missing_const_for_fn)]
+#![allow(unused, dead_code)]
+use std::{fs::read_to_string, path::Path};
+
+use clap::Parser;
+use cli::Args;
+use config::{Config, Image};
+use scenes::{
+    checkered_spheres, cornell_box, debugging_scene, perlin_spheres, plane, simple, simple_light,
+    simple_transform,
 };
 
-use itertools::iproduct;
-use kdam::par_tqdm;
-use rand::{rngs::SmallRng, thread_rng, SeedableRng};
-use rayon::iter::{IntoParallelIterator as _, ParallelIterator as _};
-use utils::{checkered_spheres, plane_scene, random_f64, ray_colour, simple_scene};
-
-use crate::{
-    camera::Camera,
-    config::{Config, Image},
-    vec3::{Colour, Point3, SampledColour, Vec3},
-};
+use crate::{cli::Scenes, scenes::SceneGenerator};
 
 mod bvh;
 mod camera;
 mod config;
 mod entities;
+mod geometry;
 mod hittable;
 mod hittable_list;
 mod material;
+mod pdf;
+mod perlin;
 mod ray;
-#[cfg(test)]
-mod test;
 mod texture;
 mod utils;
-mod vec3;
+
+mod scenes;
+mod cli {
+    use clap::{Parser, ValueEnum};
+    #[derive(Debug, Parser)]
+    pub struct Args {
+        pub scene: Scenes,
+        #[arg(long)]
+        pub debug: bool,
+    }
+
+    #[derive(Debug, ValueEnum, Clone, Copy)]
+    pub enum Scenes {
+        CornellBox,
+        Debug,
+        CheckeredSpheres,
+        PerlinSpheres,
+        Plane,
+        Simple,
+        SimpleLight,
+        SimpleTransform,
+    }
+}
+
+fn get_scene_generator(scene: Scenes) -> &'static dyn SceneGenerator {
+    match scene {
+        cli::Scenes::CornellBox => &cornell_box,
+        cli::Scenes::Debug => &debugging_scene,
+        cli::Scenes::CheckeredSpheres => &checkered_spheres,
+        cli::Scenes::PerlinSpheres => &perlin_spheres,
+        cli::Scenes::Plane => &plane,
+        cli::Scenes::Simple => &simple,
+        cli::Scenes::SimpleLight => &simple_light,
+        cli::Scenes::SimpleTransform => &simple_transform,
+    }
+}
 
 fn main() {
+    let args = Args::parse();
+
     let config = read_to_string("Config.toml").unwrap();
     let mut config = toml::from_str::<Config>(&config).unwrap();
     let Image {
@@ -41,63 +76,23 @@ fn main() {
     } = config.get_image().unwrap();
 
     // World
-    // let world = simple_scene();
-    let world = simple_scene();
+    let scene_generator = get_scene_generator(args.scene);
+    let (world, lights, cam) = scene_generator.generate_scene();
 
     // Camera
-    let lookfrom = Point3::new(-13., 2., 3.);
-    let lookat = Point3::new(0., 0., 0.);
-    let vup = Vec3::new(0., 1., 0.);
-    let dist_to_focus = 10.;
-    let aperture = 0.1;
-    let cam = Camera::new(
-        lookfrom,
-        lookat,
-        vup,
-        20.,
-        aspect_ratio,
-        aperture,
-        dist_to_focus,
-    );
+    let cam = cam
+        .with_vfov(40.)
+        .with_aspect_ratio(aspect_ratio)
+        .with_max_depth(max_depth as _)
+        .with_image_width(image_width)
+        .with_image_height(image_height)
+        .with_samples_per_pixel(samples_per_pixel)
+        .build();
 
     // Render
-    let mut out: Vec<Vec<_>> = (0..image_height)
-        .map(|_| (0..image_width).map(|_| Colour::default()).collect())
-        .collect();
-    let process: Vec<_> = out
-        .iter_mut()
-        .enumerate()
-        .flat_map(|(j, vec)| {
-            vec.iter_mut()
-                .enumerate()
-                .map(move |(i, v)| (j as u32, i as u32, v))
-        })
-        .collect();
-    par_tqdm!(process.into_par_iter()).for_each(|(j, i, v)| {
-        let i = (i) as f64;
-        let j = (j) as f64;
-        let image_width = (image_width - 1) as f64;
-        let image_height = (image_height - 1) as f64;
-        *v = (0..samples_per_pixel)
-            // .into_par_iter()
-            .map(|_| {
-                let mut rng = SmallRng::from_rng(thread_rng()).unwrap();
-                let u = (i + random_f64(&mut rng)) / image_width;
-                let v = (j + random_f64(&mut rng)) / image_height;
-                let r = cam.get_ray(u, v, &mut rng);
-                ray_colour(&r, &world, max_depth as _)
-            })
-            .fold(Colour::default(), |acc, val| acc + val);
-    });
-
-    let mut file = BufWriter::new(File::create("image.ppm").unwrap());
-    file.write_fmt(format_args!("P3\n{image_width} {image_height}\n255\n"))
-        .unwrap();
-    for (j, i) in iproduct!((0..image_height).rev(), 0..image_width) {
-        file.write_fmt(format_args!(
-            "{}\n",
-            SampledColour::from((out[j as usize][i as usize], samples_per_pixel as _))
-        ))
-        .unwrap();
+    if args.debug {
+        cam.render_debug::<&Path>(world.as_ref(), lights.as_ref(), None);
+    } else {
+        cam.render::<&Path>(world.as_ref(), lights.as_ref(), None);
     }
 }

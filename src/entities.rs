@@ -1,7 +1,9 @@
 mod aabox;
+mod cuboid;
 mod plane;
+mod quadrilateral;
 mod sphere;
-
+pub mod transformations;
 mod aaplane {
 
     #[repr(u8)]
@@ -12,7 +14,7 @@ mod aaplane {
         Z = 2,
     }
 
-    pub fn get_axis() -> [Axis; 3] {
+    pub const fn get_axis() -> [Axis; 3] {
         [Axis::X, Axis::Y, Axis::Z]
     }
 
@@ -31,8 +33,19 @@ mod aaplane {
 }
 pub use aabox::AABBox;
 pub use aaplane::{get_axis, AAPlane, Axis};
+pub use cuboid::Cuboid;
 pub use plane::Plane;
+pub use quadrilateral::Quad;
 pub use sphere::Sphere;
+
+#[cfg(debug_assertions)]
+pub(crate) use aabox::AABOX_HIT_COUNTER;
+#[cfg(debug_assertions)]
+pub(crate) use plane::PLANE_HIT_COUNTER;
+#[cfg(debug_assertions)]
+pub(crate) use quadrilateral::QUAD_HIT_COUNTER;
+#[cfg(debug_assertions)]
+pub(crate) use sphere::SPHERE_HIT_COUNTER;
 
 pub trait Bounded {
     fn get_aabbox(&self) -> AABBox;

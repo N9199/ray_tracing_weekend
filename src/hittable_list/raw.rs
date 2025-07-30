@@ -10,10 +10,13 @@ mod type_shit {
     use super::RawHittableVec;
 
     pub struct Functions {
-        pub(crate) into_hittable: unsafe fn(*const Slice<u8>) -> *const dyn Hittable,
-        pub(crate) into_bounded: unsafe fn(*const Slice<u8>) -> *const dyn Bounded,
-        pub(crate) into_debug: unsafe fn(*const Slice<u8>) -> *const dyn Debug,
-        pub(crate) aabox_shim: unsafe fn(*const u8) -> (AABBox, *const u8),
+        pub(crate) slice_into_hittable: unsafe fn(*const Slice<u8>) -> *const dyn Hittable,
+        pub(crate) slice_into_bounded: unsafe fn(*const Slice<u8>) -> *const dyn Bounded,
+        pub(crate) slice_into_debug: unsafe fn(*const Slice<u8>) -> *const dyn Debug,
+        pub(crate) into_hittable: unsafe fn(*const u8) -> *const dyn Hittable,
+        pub(crate) into_bounded: unsafe fn(*const u8) -> *const dyn Bounded,
+        pub(crate) into_debug: unsafe fn(*const u8) -> *const dyn Debug,
+        pub(crate) advance_by_one_shim: unsafe fn(*const u8) -> *const u8,
         pub(crate) drop_shim: unsafe fn(*mut u8, usize, usize),
         pub(crate) split_by: fn(*mut u8, usize, usize, AAPlane) -> (RawHittableVec, RawHittableVec),
     }
@@ -24,26 +27,30 @@ mod type_shit {
 
     impl<T> RawHittableVecFns for T
     where
-        T: Debug + BoundedHittable + 'static,
+        T: Debug + BoundedHittable + Sync + Send + 'static,
     {
         const FUNCTIONS: Functions = Functions {
-            into_hittable: |slice| unsafe {
+            slice_into_hittable: |slice| unsafe {
                 std::mem::transmute::<*const Slice<u8>, *const Slice<T>>(slice)
                     as *const dyn Hittable
             },
-            into_bounded: |slice| unsafe {
+            slice_into_bounded: |slice| unsafe {
                 std::mem::transmute::<*const Slice<u8>, *const Slice<T>>(slice)
                     as *const dyn Bounded
             },
-            into_debug: |slice| unsafe {
+            slice_into_debug: |slice| unsafe {
                 std::mem::transmute::<*const Slice<u8>, *const Slice<T>>(slice) as *const dyn Debug
             },
-            aabox_shim: |ptr| unsafe {
-                (
-                    ptr.cast::<T>().as_ref().unwrap().get_aabbox(),
-                    ptr.wrapping_add(std::mem::size_of::<T>()),
-                )
+            into_hittable: |ptr| unsafe {
+                std::mem::transmute::<*const u8, *const T>(ptr) as *const dyn Hittable
             },
+            into_bounded: |ptr| unsafe {
+                std::mem::transmute::<*const u8, *const T>(ptr) as *const dyn Bounded
+            },
+            into_debug: |ptr| unsafe {
+                std::mem::transmute::<*const u8, *const T>(ptr) as *const dyn Debug
+            },
+            advance_by_one_shim: |ptr| unsafe { ptr.wrapping_add(std::mem::size_of::<T>()) },
             drop_shim: |ptr, len, cap| unsafe {
                 let temp_ptr = ptr;
                 if cap != 0 {
@@ -60,6 +67,7 @@ mod type_shit {
                                 }
                             }
                         };
+                        #[allow(clippy::redundant_pattern_matching)]
                         while let Some(_) = lambda() {}
                     }
                     let layout = Layout::array::<T>(cap).unwrap();
@@ -67,19 +75,19 @@ mod type_shit {
                 }
             },
             split_by: |ptr, mut len, _, plane| {
-                dbg!(plane);
+                // dbg!(plane);
                 let (mut left, mut right) =
                     (RawHittableVec::new::<T>(), RawHittableVec::new::<T>());
                 while len != 0 {
                     len -= 1;
                     let val = unsafe { std::ptr::read(ptr.cast::<T>().cast_const().add(len)) };
                     if !val.get_aabbox().right_of(plane) {
-                        dbg!("left", val.get_aabbox());
+                        // dbg!("left", val.get_aabbox());
                         unsafe {
                             left.add(val);
                         }
                     } else {
-                        dbg!("right", val.get_aabbox());
+                        // dbg!("right", val.get_aabbox());
                         unsafe {
                             right.add(val);
                         }
@@ -97,7 +105,12 @@ use crossbeam::atomic::AtomicCell;
 use crate::{
     entities::{AABBox, AAPlane, Bounded},
     hittable::{BoundedHittable, HitRecord, Hittable},
+    hittable_list::raw::{
+        bounded_iterator::RawHittableVecBoundedIterator,
+        hittable_iterator::RawHittableVecHittableIterator,
+    },
     ray::Ray,
+    utils::slice::Slice,
 };
 
 use self::type_shit::{Functions, RawHittableVecFns};
@@ -110,7 +123,8 @@ pub struct RawHittableVec {
     cached_aabox: AtomicCell<Option<AABBox>>,
     fns: &'static Functions,
 }
-// u8 is Send and Sync
+// To create a RawHittableVec with `new` you have to guarantee that `T` is Send and Sync,
+// as this is "essentially" a `Vec<T>` with `T` erased, it also implements Send and Sync
 unsafe impl Send for RawHittableVec {}
 unsafe impl Sync for RawHittableVec {}
 
@@ -123,7 +137,7 @@ unsafe impl Sync for RawHittableVec {}
 // }
 
 impl RawHittableVec {
-    pub fn new<T>() -> Self
+    pub const fn new<T>() -> Self
     where
         T: RawHittableVecFns + BoundedHittable + Debug + 'static,
     {
@@ -149,10 +163,10 @@ impl RawHittableVec {
         self.len = vec.len();
         self.cap = vec.capacity();
         std::mem::forget(vec);
-        let bbox = self.cached_aabox.load().map_or(bbox, |mut value| {
-            value.enclose(&bbox);
-            value
-        });
+        let bbox = self
+            .cached_aabox
+            .load()
+            .map_or(bbox, |value| value.enclose(&bbox));
         self.cached_aabox.store(Some(bbox));
     }
 
@@ -163,7 +177,7 @@ impl RawHittableVec {
         out
     }
 
-    pub fn len(&self) -> usize {
+    pub const fn len(&self) -> usize {
         self.len
     }
 
@@ -171,8 +185,17 @@ impl RawHittableVec {
     //     (self.sort_by_axis)(self.ptr, self.len, axis)
     // }
 
-    pub fn iter_aaboxes(&self) -> RawHittableVecAABoxesIterator<'_> {
-        RawHittableVecAABoxesIterator {
+    pub const fn iter_bounded(&self) -> impl Iterator<Item = &'_ dyn Bounded> + '_ {
+        RawHittableVecBoundedIterator {
+            ptr: self.ptr,
+            len: self.len,
+            fns: self.fns,
+            _phantom: PhantomData,
+        }
+    }
+
+    pub const fn iter_hittable(&self) -> impl Iterator<Item = &'_ dyn Hittable> + '_ {
+        RawHittableVecHittableIterator {
             ptr: self.ptr,
             len: self.len,
             fns: self.fns,
@@ -183,10 +206,14 @@ impl RawHittableVec {
 
 impl Hittable for RawHittableVec {
     fn hit(&self, r: &Ray, range: RangeInclusive<f64>) -> Option<HitRecord<'_>> {
+        // dbg!("RawHittableVec");
         unsafe {
-            (self.fns.into_hittable)(std::mem::transmute(self as *const _))
-                .as_ref()
-                .unwrap()
+            (self.fns.slice_into_hittable)(std::mem::transmute::<
+                *const RawHittableVec,
+                *const Slice<u8>,
+            >(self as *const _))
+            .as_ref()
+            .unwrap()
         }
         .hit(r, range)
     }
@@ -197,26 +224,43 @@ impl Bounded for RawHittableVec {
         if let Some(aabox) = self.cached_aabox.load() {
             return aabox;
         }
-        let aabox =
-            unsafe { (self.fns.into_bounded)(std::mem::transmute(self as *const _)).as_ref() }
-                .unwrap()
-                .get_aabbox();
+        let aabox = unsafe {
+            (self.fns.slice_into_bounded)(std::mem::transmute::<
+                *const RawHittableVec,
+                *const Slice<u8>,
+            >(self as *const _))
+            .as_ref()
+        }
+        .unwrap()
+        .get_aabbox();
         self.cached_aabox.store(Some(aabox));
         aabox
     }
 
     fn get_surface_area(&self) -> f64 {
-        unsafe { ((self.fns.into_bounded)(std::mem::transmute(self as *const _))).as_ref() }
-            .unwrap()
-            .get_surface_area()
+        unsafe {
+            ((self.fns.slice_into_bounded)(std::mem::transmute::<
+                *const RawHittableVec,
+                *const Slice<u8>,
+            >(self as *const _)))
+            .as_ref()
+        }
+        .unwrap()
+        .get_surface_area()
     }
 }
 
 impl std::fmt::Debug for RawHittableVec {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        unsafe { (self.fns.into_debug)(std::mem::transmute(self as *const _)).as_ref() }
-            .unwrap()
-            .fmt(f)
+        unsafe {
+            (self.fns.slice_into_debug)(std::mem::transmute::<
+                *const RawHittableVec,
+                *const Slice<u8>,
+            >(self as *const _))
+            .as_ref()
+        }
+        .unwrap()
+        .fmt(f)
     }
 }
 
@@ -228,30 +272,76 @@ impl Drop for RawHittableVec {
     }
 }
 
-pub struct RawHittableVecAABoxesIterator<'a> {
-    ptr: *const u8,
-    len: usize,
-    fns: &'static Functions,
-    _phantom: PhantomData<&'a ()>,
-}
+mod bounded_iterator {
+    use crate::entities::Bounded;
 
-impl<'a> Iterator for RawHittableVecAABoxesIterator<'a> {
-    type Item = AABBox;
+    use std::marker::PhantomData;
 
-    fn next(&mut self) -> Option<Self::Item> {
-        if self.len == 0 {
-            None
-        } else {
-            let (out, ptr) = unsafe { (self.fns.aabox_shim)(self.ptr) };
-            self.ptr = ptr;
-            self.len -= 1;
-            Some(out)
+    use super::type_shit::Functions;
+
+    pub struct RawHittableVecBoundedIterator<'a> {
+        pub(crate) ptr: *const u8,
+        pub(crate) len: usize,
+        pub(crate) fns: &'static Functions,
+        pub(crate) _phantom: PhantomData<&'a ()>,
+    }
+
+    impl<'a> Iterator for RawHittableVecBoundedIterator<'a> {
+        type Item = &'a dyn Bounded;
+
+        fn next(&mut self) -> Option<Self::Item> {
+            if self.len == 0 {
+                None
+            } else {
+                let out_ptr = unsafe { ((self.fns.into_bounded)(self.ptr)) };
+                let ptr = unsafe { (self.fns.advance_by_one_shim)(self.ptr) };
+                self.ptr = ptr;
+                self.len -= 1;
+                unsafe { out_ptr.as_ref() }
+            }
+        }
+
+        fn size_hint(&self) -> (usize, Option<usize>) {
+            (self.len, Some(self.len))
         }
     }
 
-    fn size_hint(&self) -> (usize, Option<usize>) {
-        (self.len, Some(self.len))
-    }
+    impl ExactSizeIterator for RawHittableVecBoundedIterator<'_> {}
 }
 
-impl<'a> ExactSizeIterator for RawHittableVecAABoxesIterator<'a> {}
+mod hittable_iterator {
+    use crate::hittable::Hittable;
+
+    use std::marker::PhantomData;
+
+    use super::type_shit::Functions;
+
+    pub struct RawHittableVecHittableIterator<'a> {
+        pub(crate) ptr: *const u8,
+        pub(crate) len: usize,
+        pub(crate) fns: &'static Functions,
+        pub(crate) _phantom: PhantomData<&'a ()>,
+    }
+
+    impl<'a> Iterator for RawHittableVecHittableIterator<'a> {
+        type Item = &'a dyn Hittable;
+
+        fn next(&mut self) -> Option<Self::Item> {
+            if self.len == 0 {
+                None
+            } else {
+                let out_ptr = unsafe { ((self.fns.into_hittable)(self.ptr)) };
+                let ptr = unsafe { (self.fns.advance_by_one_shim)(self.ptr) };
+                self.ptr = ptr;
+                self.len -= 1;
+                unsafe { out_ptr.as_ref() }
+            }
+        }
+
+        fn size_hint(&self) -> (usize, Option<usize>) {
+            (self.len, Some(self.len))
+        }
+    }
+
+    impl ExactSizeIterator for RawHittableVecHittableIterator<'_> {}
+}

@@ -3,9 +3,9 @@ use std::fmt::Debug;
 
 use crate::{
     entities::Bounded,
+    geometry::vec3::{Point3, Vec3},
     material::Material,
     ray::Ray,
-    vec3::{Point3, Vec3},
 };
 
 pub struct HitRecord<'a> {
@@ -28,6 +28,9 @@ impl<'a> HitRecord<'a> {
         v: f64,
         mat_ptr: &'a dyn Material,
     ) -> Self {
+        // assert!(u.is_finite(), "{}", u);
+        // assert!(v.is_finite(), "{}", v);
+        // assert!(t.is_finite(), "{}", t);
         let p = r.at(t);
         let front_face = r.get_direction().dot(outward_normal) < 0.;
         let normal = if front_face {
@@ -47,43 +50,56 @@ impl<'a> HitRecord<'a> {
     }
 
     #[inline]
-    pub fn get_u(&self) -> f64 {
+    pub const fn get_u(&self) -> f64 {
         self.u
     }
 
     #[inline]
-    pub fn get_v(&self) -> f64 {
+    pub const fn get_v(&self) -> f64 {
         self.v
     }
 
     #[inline]
-    pub fn get_p(&self) -> Point3 {
+    pub const fn get_p(&self) -> Point3 {
         self.p
     }
 
     #[inline]
-    pub fn get_normal(&self) -> Vec3 {
+    pub const fn get_normal(&self) -> Vec3 {
         self.normal
     }
 
     #[inline]
-    pub fn get_t(&self) -> f64 {
+    pub const fn get_t(&self) -> f64 {
         self.t
     }
 
     #[inline]
-    pub fn is_front_face(&self) -> bool {
+    pub const fn is_front_face(&self) -> bool {
         self.front_face
     }
 
     #[inline]
-    pub fn get_material(&self) -> &dyn Material {
+    pub const fn get_material(&self) -> &dyn Material {
         self.mat_ptr
+    }
+
+    #[inline]
+    pub(crate) const fn get_mut_p(&mut self) -> &mut Vec3 {
+        &mut self.p
     }
 }
 
-pub trait Hittable: Sync + Send {
+pub trait Hittable: Sync + Send + Debug {
     fn hit(&self, r: &Ray, range: RangeInclusive<f64>) -> Option<HitRecord<'_>>;
+
+    fn pdf_value(&self, origin: Point3, direction: Vec3) -> f64 {
+        0.
+    }
+
+    fn random(&self, origin: Point3, rng: &mut dyn rand::RngCore) -> Vec3 {
+        Vec3::from([1., 0., 0.])
+    }
 }
 
 pub trait BoundedHittable: Hittable + Bounded + Debug {
@@ -92,7 +108,7 @@ pub trait BoundedHittable: Hittable + Bounded + Debug {
     }
 }
 
-impl<'a, T> Hittable for &'a [T]
+impl<T> Hittable for &[T]
 where
     T: BoundedHittable,
 {
@@ -102,7 +118,10 @@ where
         self.iter()
             .filter_map(|obj| {
                 (obj.is_aabbox_hit(r, start..=end))
-                    .then(|| obj.hit(r, start..=end))
+                    .then(|| {
+                        // dbg!(r);
+                        obj.hit(r, start..=end)
+                    })
                     .flatten()
             })
             .min_by(|a, b| a.get_t().total_cmp(&b.get_t()))

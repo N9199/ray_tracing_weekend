@@ -1,11 +1,9 @@
 use criterion::{criterion_group, criterion_main, Criterion};
 use rand::{rngs::SmallRng, Rng, SeedableRng};
 use ray_tracing_weekend::{
-    entities::{AABBox, Sphere},
-    hittable::Hittable,
-    material::Lambertian,
+    entities::AABBox,
+    geometry::vec3::{Point3, Vec3},
     ray::Ray,
-    vec3::{Colour, Point3, Vec3},
 };
 
 fn aabox_hits(c: &mut Criterion) {
