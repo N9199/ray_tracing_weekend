@@ -1,0 +1,30 @@
+[package]
+name = "shared"
+version = "0.1.0"
+edition = "2024"
+
+[features]
+hit_counters = []
+
+[profile.release]
+debug = true
+
+[dependencies]
+arrayvec = "0.7.6"
+crossbeam = "0.8.2"
+itertools = "0.10.5"
+kdam = {version = "0.4.1", features = ["rayon"]}
+libm = "0.2.15"
+rand = { version = "0.8.5", features = ["small_rng"] }
+rayon = "1.10.0"
+
+[dev-dependencies]
+criterion = "0.4.0"
+
+[[bench]]
+name = "sphere_hit"
+harness = false
+
+[[bench]]
+name = "aabox_hit"
+harness = false

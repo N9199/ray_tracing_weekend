@@ -1,22 +1,14 @@
-[package]
-name = "ray_tracing_weekend"
-version = "0.1.0"
-edition = "2021"
+[workspace]
+resolver = '3'
+members = [
+    "bin",
+    "shared",
+]
 
-# See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
-[profile.release]
-debug = true
+[workspace.lints.clippy]
+missing_const_for_fn = "warn"
 
-[dependencies]
-clap = { version = "4.5.32", features = ["derive"] }
-crossbeam = "0.8.2"
-image = "0.25.1"
-itertools = "0.10.5"
-kdam = {version = "0.4.1", features = ["rayon"]}
-rand = { version = "0.8.5", features = ["small_rng"] }
-rayon = "1.6.1"
-serde = { version = "1.0.152", features = ["derive"] }
-toml = "0.7.2"
+[workspace.dependencies]
 
 [profile.dev]
 opt-level = 0
@@ -24,13 +16,15 @@ opt-level = 0
 [profile.dev.package."*"]
 opt-level = 3
 
-[dev-dependencies]
-criterion = "0.4.0"
+[profile.dev.build-override]
+opt-level = 3
 
-[[bench]]
-name = "sphere_hit"
-harness = false
+[profile.bench]
+debug = true
 
-[[bench]]
-name = "aabox_hit"
-harness = false
+[profile.release]
+debug = true
+lto = "fat"
+
+[profile.release.build-override]
+opt-level = 3

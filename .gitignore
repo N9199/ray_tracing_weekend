@@ -1,5 +1,8 @@
+# Rust
 /target
 
+# Profiling
+profile.json.gz
 
 # VSCode
 .vscode/
