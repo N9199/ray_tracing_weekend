@@ -11,7 +11,7 @@ use crate::{
     geometry::vec3::{Colour, Point3, Vec3},
     hittable::BoundedHittable,
     hittable_collections::{bvh::BoundedVolumeHierarchy, hittable_list::HittableList},
-    material::{Dialectric, DiffuseLight, Lambertian, Material, Metal},
+    material::{Dialectric, DiffuseLight, Invisible, Lambertian, Material, Metal},
     texture::{CheckerTexture, NoiseTexture},
     utils::random_utils,
 };
@@ -136,7 +136,9 @@ pub fn checkered_spheres() -> (
     world.add(Sphere::new(Point3::new(0., -10., 0.), 10., checker.clone()));
     world.add(Sphere::new(Point3::new(0., 10., 0.), 10., checker.clone()));
 
-    let lights = HittableList::default();
+    let mut lights = HittableList::default();
+
+    lights.add(Sphere::new(Point3::new(0., 0., 0.), 0.1, checker.clone()));
 
     let lookfrom = Point3::new(40.0, 1.0, 0.0);
     let lookat = Point3::new(0.0, 0.0, 0.0);
@@ -155,7 +157,9 @@ pub fn simple() -> (
     Box<dyn BoundedHittable>,
     CameraBuilder,
 ) {
+    let mut lights = HittableList::default();
     let mut world = HittableList::default();
+    let invisible_material = Arc::new(Invisible);
     let ground_material = Arc::new(Lambertian::new_with_colour(Colour::new(0.9, 0.9, 0.9)));
 
     world.add(Plane::new(
@@ -196,6 +200,7 @@ pub fn simple() -> (
                     let fuzz = 1. - random_utils::random_f64_2(&mut rng);
                     Arc::new(Metal::new(albedo, fuzz))
                 } else {
+                    lights.add(Sphere::new(center, 0.2, invisible_material.clone()));
                     material1.clone()
                 };
                 world.add(Sphere::new(center, 0.2, mat));
@@ -209,7 +214,7 @@ pub fn simple() -> (
     world.add(Sphere::new(Point3::new(-4., 1., 0.), 1., material2));
     world.add(Sphere::new(Point3::new(4., 1., 0.), 1., material3));
 
-    let lights = HittableList::default();
+    lights.add(Sphere::new(Point3::new(0., 1., 0.), 1., invisible_material));
 
     let lookfrom = Point3::new(10.0, 5.0, 10.0);
     let lookat = Point3::new(0.0, 0.0, 0.0);
