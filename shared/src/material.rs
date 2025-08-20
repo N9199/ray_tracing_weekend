@@ -44,6 +44,14 @@ pub trait Material: Sync + Send + Debug {
     }
 }
 
+#[derive(Debug, Clone, Copy)]
+pub struct Invisible;
+
+impl Material for Invisible {}
+
+// TODO: Make it so
+// const INVISIBLE_PTR: &Invisible = &Invisible;
+
 pub struct Lambertian {
     texture: Arc<dyn Texture>,
 }
