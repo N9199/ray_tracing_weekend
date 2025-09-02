@@ -6,7 +6,7 @@ members = [
 ]
 
 [workspace.lints.clippy]
-missing_const_for_fn = "warn"
+missing_const_for_fn = "deny"
 
 [workspace.dependencies]
 

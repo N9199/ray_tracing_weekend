@@ -3,11 +3,12 @@ mod raw;
 
 pub use vector_based::HittableList;
 
+#[allow(dead_code)]
 mod hash_map_based {
     use rand::seq::IteratorRandom as _;
 
     use crate::{
-        entities::{get_axis, AABBox, AAPlane, Axis, Bounded},
+        entities::{AABBox, AAPlane, Axis, Bounded, get_axis},
         geometry::vec3::{Point3, Vec3},
         hittable::{BoundedHittable, HitRecord, Hittable},
         hittable_collections::hittable_list::RawHittableVec,
@@ -216,7 +217,7 @@ mod vector_based {
     use rand::seq::IteratorRandom as _;
 
     use crate::{
-        entities::{get_axis, AABBox, AAPlane, Axis, Bounded},
+        entities::{AABBox, AAPlane, Axis, Bounded, get_axis},
         geometry::vec3::{Point3, Vec3},
         hittable::{BoundedHittable, HitRecord, Hittable},
         hittable_collections::hittable_list::RawHittableVec,

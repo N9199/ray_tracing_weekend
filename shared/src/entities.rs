@@ -32,7 +32,7 @@ mod aaplane {
     }
 }
 pub use aabox::AABBox;
-pub use aaplane::{get_axis, AAPlane, Axis};
+pub use aaplane::{AAPlane, Axis, get_axis};
 pub use cuboid::Cuboid;
 pub use plane::Plane;
 pub use quadrilateral::Quad;

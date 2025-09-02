@@ -265,7 +265,6 @@ mod flat {
             );
             // Separate the first and last of the following as they are not full segments
             // hittables.iter_mut().skip(i.0).take(j.0 - i.0).for_each(|raw_vec|);
-
         }
     }
 

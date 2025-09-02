@@ -372,6 +372,7 @@ impl Camera {
             .collect()
     }
 
+    #[allow(dead_code)]
     fn ray_colour(
         r: &Ray,
         background: &Colour,

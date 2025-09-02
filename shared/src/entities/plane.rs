@@ -1,15 +1,15 @@
 #[cfg(feature = "hit_counters")]
 use std::sync::atomic::{self, AtomicU32};
 use std::{
+    fmt::Debug,
     ops::{Add, Div, Mul, RangeInclusive, Sub},
-    sync::Arc,
 };
 
 use crate::{
     entities::Bounded,
     geometry::vec3::{Point3, Vec3},
     hittable::{BoundedHittable, HitRecord, Hittable},
-    material::Material,
+    material::DynMaterial,
     ray::Ray,
 };
 
@@ -19,15 +19,19 @@ use super::AABBox;
 pub struct Plane {
     point: Point3,
     normal: Vec3,
-    mat_ptr: Arc<dyn Material>,
+    mat_ptr: DynMaterial,
 }
 
 impl Plane {
-    pub fn new(point: Point3, normal: Vec3, mat_ptr: Arc<dyn Material>) -> Self {
+    pub fn new<T>(point: Point3, normal: Vec3, mat_ptr: T) -> Self
+    where
+        T: TryInto<DynMaterial>,
+        <T as TryInto<DynMaterial>>::Error: Debug,
+    {
         Self {
             point,
             normal: normal.unit_vec(),
-            mat_ptr,
+            mat_ptr: mat_ptr.try_into().unwrap(),
         }
     }
 
