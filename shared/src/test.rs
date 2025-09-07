@@ -1,6 +1,7 @@
+use geometry::vec3::{Point3, Vec3};
+
 use crate::{
     camera::CameraBuilder,
-    geometry::vec3::{Point3, Vec3},
     scenes::{cornell_box, debugging_scene, plane, simple, simple_light},
 };
 

@@ -4,8 +4,10 @@ use std::{f64::consts::PI, fmt::Debug, sync::Arc};
 
 use rand::{Rng, distributions::Open01};
 
+use geometry::vec3::Point3;
+
 use crate::{
-    geometry::vec3::{Colour, Point3},
+    colour::Colour,
     hittable::HitRecord,
     pdf::{CosinePdf, Pdf, SpherePdf},
     ray::Ray,
@@ -52,11 +54,9 @@ mod dyn_util {
     mod transmute {
         use std::{fmt::Debug, mem::MaybeUninit, ops::Deref, ptr::drop_in_place};
 
-        use crate::{
-            geometry::vec3::{Colour, Point3},
-            hittable::HitRecord,
-            ray::Ray,
-        };
+        use geometry::vec3::Point3;
+
+        use crate::{colour::Colour, hittable::HitRecord, ray::Ray};
 
         use super::super::{Material, ScatterRecord};
 
@@ -239,12 +239,9 @@ mod dyn_util {
     mod dyn_enum {
         use std::sync::Arc;
 
-        use crate::{
-            geometry::vec3::{Colour, Point3},
-            hittable::HitRecord,
-            material::ScatterRecord,
-            ray::Ray,
-        };
+        use geometry::vec3::Point3;
+
+        use crate::{colour::Colour, hittable::HitRecord, material::ScatterRecord, ray::Ray};
 
         use super::super::Material;
 

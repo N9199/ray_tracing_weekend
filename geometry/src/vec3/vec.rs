@@ -4,7 +4,7 @@ use std::{
     ops::{DivAssign, Index, IndexMut},
 };
 
-use crate::entities::{AABBox, Bounded};
+use crate::{aabox::AABBox, bounded::Bounded};
 
 #[repr(C)]
 #[derive(Debug, Default, Clone, Copy)]

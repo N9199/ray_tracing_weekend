@@ -1,12 +1,89 @@
 use core::ops::RangeInclusive;
 use std::fmt::Debug;
 
-use crate::{
-    entities::Bounded,
-    geometry::vec3::{Point3, Vec3},
-    material::Material,
-    ray::Ray,
+use crate::{material::Material, ray::Ray};
+
+use geometry::{
+    bounded::Bounded,
+    vec3::{Point3, Vec3},
 };
+
+pub use aabox_extend::AABoxHit;
+
+#[cfg(feature = "hit_counters")]
+pub(crate) use aabox_extend::AABOX_HIT_COUNTER;
+
+mod aabox_extend {
+    use std::ops::RangeInclusive;
+    #[cfg(feature = "hit_counters")]
+    use std::sync::atomic::{self, AtomicU32};
+
+    use geometry::{aabox::AABBox, aaplane, bounded::Bounded};
+
+    use crate::ray::Ray;
+
+    #[cfg(feature = "hit_counters")]
+    pub(crate) static AABOX_HIT_COUNTER: AtomicU32 = AtomicU32::new(0);
+
+    pub trait AABoxHit: Bounded {
+        fn is_hit(&self, r: &Ray, range: RangeInclusive<f64>) -> bool {
+            self.hit(r, range).is_some()
+        }
+
+        fn hit(&self, r: &Ray, range: RangeInclusive<f64>) -> Option<f64>;
+    }
+
+    impl AABoxHit for AABBox {
+        fn hit(&self, r: &Ray, range: RangeInclusive<f64>) -> Option<f64> {
+            let (x_min, x_max) = self.axis(aaplane::Axis::X).into_inner();
+            let (y_min, y_max) = self.axis(aaplane::Axis::Y).into_inner();
+            let (z_min, z_max) = self.axis(aaplane::Axis::Z).into_inner();
+            // // dbg!(r);
+            let x_tmin = (x_min - r.get_origin().get_x()) / r.get_direction().get_x();
+            let x_tmax = (x_max - r.get_origin().get_x()) / r.get_direction().get_x();
+            let (x_tmin, x_tmax) = if r.get_direction().get_x().is_sign_negative() {
+                (x_tmax, x_tmin)
+            } else {
+                (x_tmin, x_tmax)
+            };
+            let (tmin, tmax) = (x_tmin, x_tmax);
+            let y_tmin = (y_min - r.get_origin().get_y()) / r.get_direction().get_y();
+            let y_tmax = (y_max - r.get_origin().get_y()) / r.get_direction().get_y();
+            let (y_tmin, y_tmax) = if r.get_direction().get_y().is_sign_negative() {
+                (y_tmax, y_tmin)
+            } else {
+                (y_tmin, y_tmax)
+            };
+            // // dbg!(tmax, tmin, y_tmin, y_tmax);
+            if tmax < y_tmin || tmin > y_tmax {
+                return None;
+            }
+            let (tmin, tmax) = (tmin.max(y_tmin), tmax.min(y_tmax));
+            let z_tmin = (z_min - r.get_origin().get_z()) / r.get_direction().get_z();
+            let z_tmax = (z_max - r.get_origin().get_z()) / r.get_direction().get_z();
+            let (z_tmin, z_tmax) = if r.get_direction().get_z().is_sign_negative() {
+                (z_tmax, z_tmin)
+            } else {
+                (z_tmin, z_tmax)
+            };
+            // // dbg!(tmax, tmin, z_tmin, z_tmax);
+            if tmax < z_tmin || tmin > z_tmax {
+                return None;
+            }
+            let (tmin, tmax) = (tmin.max(z_tmin), tmax.min(z_tmax));
+            // TODO check if this are all the cases
+            let out = range.start().max(tmin) <= range.end().min(tmax);
+
+            #[cfg(feature = "hit_counters")]
+            if out {
+                // dbg!("AABox Hit");
+                AABOX_HIT_COUNTER.fetch_add(1, atomic::Ordering::Relaxed);
+            }
+            // dbg!(*self, r, tmin, tmax, &range, out);
+            out.then_some(range.start().max(tmin))
+        }
+    }
+}
 
 pub struct HitRecord<'a> {
     p: Point3,

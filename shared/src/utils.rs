@@ -1,8 +1,9 @@
 pub mod slice {
     use std::{fmt::Debug, ops::RangeInclusive};
 
+    use geometry::{aabox::AABBox, bounded::Bounded};
+
     use crate::{
-        entities::{AABBox, Bounded},
         hittable::{BoundedHittable, HitRecord, Hittable},
         ray::Ray,
     };
@@ -85,7 +86,7 @@ pub mod random_utils {
         seq::SliceRandom,
     };
 
-    use crate::geometry::vec3::Vec3;
+    use geometry::vec3::Vec3;
 
     #[inline]
     pub fn random_f64_2<T: rand::Rng + ?Sized>(rng: &mut T) -> f64 {

@@ -5,15 +5,17 @@ use std::{
     ops::{Add, Div, Mul, RangeInclusive, Sub},
 };
 
+use geometry::{
+    aabox::AABBox,
+    bounded::Bounded,
+    vec3::{Point3, Vec3},
+};
+
 use crate::{
-    entities::Bounded,
-    geometry::vec3::{Point3, Vec3},
     hittable::{BoundedHittable, HitRecord, Hittable},
     material::DynMaterial,
     ray::Ray,
 };
-
-use super::AABBox;
 
 #[derive(Debug)]
 pub struct Plane {

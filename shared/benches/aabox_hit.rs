@@ -1,10 +1,12 @@
 use criterion::{Criterion, criterion_group, criterion_main};
 use rand::{Rng, SeedableRng, rngs::SmallRng};
-use shared::{
-    entities::AABBox,
-    geometry::vec3::{Point3, Vec3},
-    ray::Ray,
+
+use geometry::{
+    aabox::AABBox,
+    vec3::{Point3, Vec3},
 };
+
+use shared::{hittable::AABoxHit as _, ray::Ray};
 
 fn aabox_hits(c: &mut Criterion) {
     let mut rng = SmallRng::from_entropy();
@@ -27,16 +29,16 @@ fn aabox_hits(c: &mut Criterion) {
             criterion::BatchSize::SmallInput,
         )
     });
-    group.bench_function("aabox hit test2", |b| {
-        b.iter_batched(
-            || {
-                let (x, y, z) = (rng.r#gen(), rng.r#gen(), rng.r#gen());
-                Ray::new(Point3::new(x, y, z), Vec3::new(-x, -y, -z))
-            },
-            |r| aabox.is_hit2(&r, (0.)..=f64::MAX),
-            criterion::BatchSize::SmallInput,
-        )
-    });
+    // group.bench_function("aabox hit test2", |b| {
+    //     b.iter_batched(
+    //         || {
+    //             let (x, y, z) = (rng.r#gen(), rng.r#gen(), rng.r#gen());
+    //             Ray::new(Point3::new(x, y, z), Vec3::new(-x, -y, -z))
+    //         },
+    //         |r| aabox.is_hit2(&r, (0.)..=f64::MAX),
+    //         criterion::BatchSize::SmallInput,
+    //     )
+    // });
     group.finish();
 }
 

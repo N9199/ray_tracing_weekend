@@ -1,7 +1,7 @@
 use core::ops::{Add, AddAssign, Mul};
 use std::ops::{Div, DivAssign, MulAssign};
 
-use super::vec::Vec3;
+use geometry::prelude::*;
 
 #[derive(Debug, Default, Clone, Copy)]
 pub struct Colour(Vec3);

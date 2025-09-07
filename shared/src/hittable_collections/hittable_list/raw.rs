@@ -1,8 +1,12 @@
 mod type_shit {
     use std::{alloc::Layout, fmt::Debug, slice};
 
+    use geometry::{
+        aaplane::{AAPlane, Axis},
+        bounded::Bounded,
+    };
+
     use crate::{
-        entities::{AAPlane, Axis, Bounded},
         hittable::{BoundedHittable, Hittable},
         utils::slice::Slice,
     };
@@ -115,9 +119,13 @@ use std::{
 };
 
 use crossbeam::atomic::AtomicCell;
+use geometry::{
+    aabox::AABBox,
+    aaplane::{AAPlane, Axis},
+    bounded::Bounded,
+};
 
 use crate::{
-    entities::{AABBox, AAPlane, Axis, Bounded},
     hittable::{BoundedHittable, HitRecord, Hittable},
     ray::Ray,
     utils::slice::Slice,
@@ -314,9 +322,10 @@ impl Drop for RawHittableVec {
 }
 
 mod bounded_iterator {
-    use crate::entities::Bounded;
 
     use std::marker::PhantomData;
+
+    use geometry::bounded::Bounded;
 
     use super::type_shit::Functions;
 

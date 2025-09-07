@@ -1,7 +1,7 @@
 // #![feature(explicit_tail_calls)]
 pub mod camera;
+pub mod colour;
 pub mod entities;
-pub mod geometry;
 pub mod hittable;
 pub mod hittable_collections;
 pub mod material;

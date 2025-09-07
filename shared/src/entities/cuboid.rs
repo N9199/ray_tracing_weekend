@@ -1,13 +1,19 @@
 use std::{fmt::Debug, ops::RangeInclusive};
 
+use geometry::{
+    aabox::AABBox,
+    aaplane::get_axis,
+    bounded::Bounded,
+    vec3::{Point3, Vec3},
+};
+
 use crate::{
-    geometry::vec3::{Point3, Vec3},
     hittable::{BoundedHittable, HitRecord, Hittable},
     material::DynMaterial,
     ray::Ray,
 };
 
-use super::{AABBox, Bounded, Quad, get_axis};
+use super::Quad;
 
 #[derive(Debug, Clone)]
 pub struct Cuboid {

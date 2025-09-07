@@ -2,11 +2,12 @@ use std::{f64::consts::PI, fmt::Debug};
 
 use rand::{Rng, distributions::Standard};
 
+use geometry::{
+    onb::Onb,
+    vec3::{Point3, Vec3},
+};
+
 use crate::{
-    geometry::{
-        onb::Onb,
-        vec3::{Point3, Vec3},
-    },
     hittable::Hittable,
     utils::random_utils::{CosineWeightedHemisphere, UnitSphere},
 };

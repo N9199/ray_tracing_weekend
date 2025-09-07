@@ -14,13 +14,14 @@ use rayon::iter::{IntoParallelIterator as _, ParallelIterator as _};
 use kdam::par_tqdm;
 
 use crate::{
-    geometry::vec3::{Colour, Point3, SampledColour, Vec3},
+    colour::{Colour, SampledColour},
     hittable::Hittable,
     material::ScatterReflect,
     pdf::{HittablePdf, MixturePdf, Pdf},
     ray::Ray,
     utils::random_utils::UnitDisk,
 };
+use geometry::vec3::{Point3, Vec3};
 
 #[derive(Debug, Clone, Copy)]
 pub struct CameraBuilder {
@@ -343,9 +344,8 @@ impl Camera {
 
         #[cfg(feature = "hit_counters")]
         {
-            use crate::entities::{
-                AABOX_HIT_COUNTER, PLANE_HIT_COUNTER, QUAD_HIT_COUNTER, SPHERE_HIT_COUNTER,
-            };
+            use crate::entities::{PLANE_HIT_COUNTER, QUAD_HIT_COUNTER, SPHERE_HIT_COUNTER};
+            use crate::hittable::AABOX_HIT_COUNTER;
             use crate::material::LIGHT_HIT_COUNTER;
 
             let hit_counter = HIT_COUNTER.load(Ordering::Acquire);
