@@ -1,16 +1,16 @@
 #[cfg(feature = "hit_counters")]
 use std::sync::atomic::{self, AtomicU32};
 use std::{
+    fmt::Debug,
     ops::{Div, RangeInclusive, Sub},
-    sync::Arc,
 };
 
-use rand::{distributions::Open01, Rng as _};
+use rand::{Rng as _, distributions::Open01};
 
 use crate::{
     geometry::vec3::{Point3, Vec3},
     hittable::{BoundedHittable, HitRecord, Hittable},
-    material::Material,
+    material::DynMaterial,
     ray::Ray,
 };
 
@@ -23,13 +23,18 @@ pub struct Quad {
     v: Vec3,
     w: Vec3,
     normal: Vec3,
-    mat_ptr: Arc<dyn Material>,
+    mat_ptr: DynMaterial,
     aabbox: AABBox,
     area: f64,
 }
 
 impl Quad {
-    pub fn new(q: Point3, u: Vec3, v: Vec3, mat_ptr: Arc<dyn Material>) -> Self {
+    pub fn new<T>(q: Point3, u: Vec3, v: Vec3, mat_ptr: T) -> Self
+    where
+        T: TryInto<DynMaterial>,
+        <T as TryInto<DynMaterial>>::Error: Debug,
+    {
+        let mat_ptr = mat_ptr.try_into().unwrap();
         let aabbox = AABBox::from(q + (u + v) * 0.5)
             .enclose(&(q))
             .enclose(&(q + v))

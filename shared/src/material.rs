@@ -44,8 +44,284 @@ pub trait Material: Sync + Send + Debug {
     }
 }
 
+mod dyn_util {
+    pub use dyn_enum::DynMaterial;
+
+    // Currently UB
+    #[allow(unused)]
+    mod transmute {
+        use std::{fmt::Debug, mem::MaybeUninit, ops::Deref, ptr::drop_in_place};
+
+        use crate::{
+            geometry::vec3::{Colour, Point3},
+            hittable::HitRecord,
+            ray::Ray,
+        };
+
+        use super::super::{Material, ScatterRecord};
+
+        const MAX_SIZE: usize = 16;
+        type MaterialBytes = [MaybeUninit<u8>; MAX_SIZE];
+
+        struct IntoMaterial {
+            into_material: fn(*const MaterialBytes) -> *const dyn Material,
+            into_debug: fn(*const MaterialBytes) -> *const dyn Debug,
+            drop_shim: fn(MaterialBytes),
+            clone: fn(*const MaterialBytes) -> MaterialBytes,
+        }
+
+        trait MaterialTransform: Sized {
+            const FUNCTIONS: &IntoMaterial;
+        }
+
+        impl<T> MaterialTransform for T
+        where
+            T: Deref<Target = dyn Material> + Debug + Clone,
+        {
+            const FUNCTIONS: &IntoMaterial = &IntoMaterial {
+                into_material: |bytes| {
+                    unsafe {
+                        std::mem::transmute::<*const [std::mem::MaybeUninit<u8>; 16], *const T>(
+                            bytes,
+                        )
+                        .as_ref()
+                    }
+                    .unwrap()
+                    .deref() as _
+                },
+                into_debug: |bytes| unsafe {
+                    #[cfg(debug_assertions)]
+                    dbg!(std::any::type_name::<T>());
+                    std::mem::transmute::<*const [std::mem::MaybeUninit<u8>; 16], *const T>(bytes)
+                        .as_ref()
+                        .unwrap()
+                        .deref() as *const T::Target as *const dyn Debug
+                },
+                drop_shim: |mut bytes| unsafe {
+                    if std::mem::needs_drop::<T>() {
+                        let value = std::mem::transmute::<
+                            *mut [std::mem::MaybeUninit<u8>; 16],
+                            *mut T,
+                        >(&mut bytes as *mut _);
+                        drop_in_place(value);
+                    }
+                },
+                clone: |bytes| {
+                    let new_value = unsafe {
+                        std::mem::transmute::<*const [std::mem::MaybeUninit<u8>; 16], *const T>(
+                            bytes,
+                        )
+                        .as_ref()
+                    }
+                    .unwrap()
+                    .to_owned();
+                    DynMaterial::try_new(new_value).unwrap().bytes
+                },
+            };
+        }
+
+        pub struct DynMaterial {
+            bytes: MaterialBytes,
+            into_material: &'static IntoMaterial,
+        }
+
+        impl DynMaterial {
+            #[inline]
+            pub fn try_new<T>(material_ptr: T) -> Option<Self>
+            where
+                T: Deref<Target = dyn Material> + Debug + Sized + Clone,
+            {
+                (size_of_val(&material_ptr) <= MAX_SIZE).then(|| {
+                    let mut bytes = [MaybeUninit::zeroed(); MAX_SIZE];
+                    let size = size_of::<T>();
+                    let material_ptr_ptr = unsafe {
+                        std::mem::transmute::<*const T, *const u8>(&material_ptr as *const _)
+                    };
+                    let material_ptr_as_slice =
+                        unsafe { std::slice::from_raw_parts(material_ptr_ptr, size) };
+                    bytes.iter_mut().zip(material_ptr_as_slice).for_each(
+                        |(byte, material_byte)| {
+                            byte.write(*material_byte);
+                        },
+                    );
+
+                    #[cfg(debug_assertions)]
+                    {
+                        use arrayvec::ArrayVec;
+
+                        let init_bytes: ArrayVec<_, MAX_SIZE> = bytes
+                            .iter()
+                            .take(size)
+                            .map(|byte| unsafe { byte.assume_init_ref() })
+                            .collect();
+                        dbg!(std::any::type_name::<T>());
+                        dbg!(init_bytes);
+                    }
+                    std::mem::forget(material_ptr);
+                    Self {
+                        bytes,
+                        into_material: T::FUNCTIONS,
+                    }
+                })
+            }
+
+            pub(crate) fn debug_internals(
+                &self,
+                f: &mut std::fmt::Formatter<'_>,
+            ) -> std::fmt::Result {
+                f.debug_struct("DynMaterial")
+                    .field("bytes", &self.bytes)
+                    .finish()
+            }
+        }
+
+        impl Clone for DynMaterial {
+            fn clone(&self) -> Self {
+                let bytes = (self.into_material.clone)(&self.bytes as _);
+                Self {
+                    bytes,
+                    into_material: self.into_material,
+                }
+            }
+        }
+
+        impl Debug for DynMaterial {
+            fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+                let dyn_debug = unsafe {
+                    (self.into_material.into_debug)(&self.bytes as _)
+                        .as_ref()
+                        .unwrap()
+                };
+                f.debug_struct("DynMaterial")
+                    .field("inner", dyn_debug)
+                    .finish()
+            }
+        }
+
+        impl Material for DynMaterial {
+            #[inline]
+            fn scatter(
+                &self,
+                ray_in: &Ray,
+                rec: &HitRecord<'_>,
+                rng: &mut dyn rand::RngCore,
+            ) -> Option<ScatterRecord> {
+                unsafe {
+                    (self.into_material.into_material)(&self.bytes as _)
+                        .as_ref()
+                        .unwrap()
+                }
+                .scatter(ray_in, rec, rng)
+            }
+
+            #[inline]
+            fn emitted(&self, u: f64, v: f64, point: Point3) -> Colour {
+                unsafe {
+                    (self.into_material.into_material)(&self.bytes as _)
+                        .as_ref()
+                        .unwrap()
+                }
+                .emitted(u, v, point)
+            }
+
+            #[inline]
+            fn scattering_pdf(&self, ray_in: &Ray, rec: &HitRecord<'_>, scattered: &Ray) -> f64 {
+                unsafe {
+                    (self.into_material.into_material)(&self.bytes as _)
+                        .as_ref()
+                        .unwrap()
+                }
+                .scattering_pdf(ray_in, rec, scattered)
+            }
+        }
+    }
+
+    mod dyn_enum {
+        use std::sync::Arc;
+
+        use crate::{
+            geometry::vec3::{Colour, Point3},
+            hittable::HitRecord,
+            material::ScatterRecord,
+            ray::Ray,
+        };
+
+        use super::super::Material;
+
+        #[derive(Debug, Clone)]
+        pub enum DynMaterial {
+            Ref(&'static dyn Material),
+            Arc(Arc<dyn Material>),
+        }
+
+        impl TryFrom<Arc<dyn Material>> for DynMaterial {
+            type Error = ();
+
+            fn try_from(value: Arc<dyn Material>) -> Result<Self, Self::Error> {
+                Ok(Self::Arc(value))
+            }
+        }
+
+        impl<T: Material + 'static> TryFrom<Arc<T>> for DynMaterial {
+            type Error = ();
+
+            fn try_from(value: Arc<T>) -> Result<Self, Self::Error> {
+                Ok(Self::Arc(value))
+            }
+        }
+
+        impl TryFrom<&'static dyn Material> for DynMaterial {
+            type Error = ();
+
+            fn try_from(value: &'static dyn Material) -> Result<Self, Self::Error> {
+                Ok(Self::Ref(value))
+            }
+        }
+
+        impl Material for DynMaterial {
+            fn scatter(
+                &self,
+                ray_in: &Ray,
+                rec: &HitRecord<'_>,
+                rng: &mut dyn rand::RngCore,
+            ) -> Option<ScatterRecord> {
+                match self {
+                    DynMaterial::Ref(material) => material.scatter(ray_in, rec, rng),
+                    DynMaterial::Arc(material) => material.scatter(ray_in, rec, rng),
+                }
+            }
+
+            fn emitted(&self, u: f64, v: f64, point: Point3) -> Colour {
+                match self {
+                    DynMaterial::Ref(material) => material.emitted(u, v, point),
+                    DynMaterial::Arc(material) => material.emitted(u, v, point),
+                }
+            }
+
+            fn scattering_pdf(&self, ray_in: &Ray, rec: &HitRecord<'_>, scattered: &Ray) -> f64 {
+                match self {
+                    DynMaterial::Ref(material) => material.scattering_pdf(ray_in, rec, scattered),
+                    DynMaterial::Arc(material) => material.scattering_pdf(ray_in, rec, scattered),
+                }
+            }
+        }
+
+        impl AsRef<dyn Material> for DynMaterial {
+            fn as_ref<'a>(&'a self) -> &'a (dyn Material + 'static) {
+                match self {
+                    DynMaterial::Ref(material) => *material,
+                    DynMaterial::Arc(material) => material.as_ref(),
+                }
+            }
+        }
+    }
+}
+
+pub use dyn_util::DynMaterial;
+
 #[derive(Debug, Clone, Copy)]
 pub struct Invisible;
+pub const INVISIBLE_PTR: &dyn Material = &Invisible;
 
 impl Material for Invisible {}
 

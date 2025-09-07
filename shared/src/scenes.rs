@@ -11,30 +11,27 @@ use crate::{
     geometry::vec3::{Colour, Point3, Vec3},
     hittable::BoundedHittable,
     hittable_collections::{bvh::BoundedVolumeHierarchy, hittable_list::HittableList},
-    material::{Dialectric, DiffuseLight, Invisible, Lambertian, Material, Metal},
+    material::{Dialectric, DiffuseLight, INVISIBLE_PTR, Lambertian, Material, Metal},
     texture::{CheckerTexture, NoiseTexture},
     utils::random_utils,
 };
-
-pub trait SceneGenerator:
-    Fn() -> (
+type Output = (
     Box<dyn BoundedHittable>,
     Box<dyn BoundedHittable>,
     CameraBuilder,
-)
-{
-    fn generate_scene(&self) -> Self::Output {
-        (self)()
-    }
+);
+
+pub trait SceneGenerator {
+    fn generate_scene(&self) -> Output;
 }
 
-impl<T> SceneGenerator for T where
-    T: Fn() -> (
-        Box<dyn BoundedHittable>,
-        Box<dyn BoundedHittable>,
-        CameraBuilder,
-    )
+impl<T> SceneGenerator for T
+where
+    T: Fn() -> Output,
 {
+    fn generate_scene(&self) -> Output {
+        (self)()
+    }
 }
 
 pub fn perlin_spheres() -> (
@@ -159,7 +156,7 @@ pub fn simple() -> (
 ) {
     let mut lights = HittableList::default();
     let mut world = HittableList::default();
-    let invisible_material = Arc::new(Invisible);
+    let invisible_material = INVISIBLE_PTR;
     let ground_material = Arc::new(Lambertian::new_with_colour(Colour::new(0.9, 0.9, 0.9)));
 
     world.add(Plane::new(
@@ -200,7 +197,7 @@ pub fn simple() -> (
                     let fuzz = 1. - random_utils::random_f64_2(&mut rng);
                     Arc::new(Metal::new(albedo, fuzz))
                 } else {
-                    lights.add(Sphere::new(center, 0.2, invisible_material.clone()));
+                    lights.add(Sphere::new(center, 0.2, invisible_material));
                     material1.clone()
                 };
                 world.add(Sphere::new(center, 0.2, mat));

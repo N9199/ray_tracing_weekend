@@ -2,11 +2,11 @@
 use std::sync::atomic::{self, AtomicU32};
 use std::{
     f64::consts::{PI, TAU},
+    fmt::Debug,
     ops::{Div, Neg, RangeInclusive},
-    sync::Arc,
 };
 
-use rand::{distributions::Standard, Rng};
+use rand::{Rng, distributions::Standard};
 
 use crate::{
     entities::Bounded,
@@ -15,7 +15,7 @@ use crate::{
         vec3::{Point3, Vec3},
     },
     hittable::{BoundedHittable, HitRecord, Hittable},
-    material::Material,
+    material::DynMaterial,
     ray::Ray,
 };
 
@@ -25,16 +25,20 @@ use super::AABBox;
 pub struct Sphere {
     center: Point3,
     radius: f64,
-    mat_ptr: Arc<dyn Material>,
+    mat_ptr: DynMaterial,
     aabox: AABBox,
 }
 
 impl Sphere {
-    pub fn new(center: Point3, radius: f64, mat_ptr: Arc<dyn Material>) -> Self {
+    pub fn new<T>(center: Point3, radius: f64, mat_ptr: T) -> Self
+    where
+        T: TryInto<DynMaterial>,
+        <T as TryInto<DynMaterial>>::Error: Debug,
+    {
         Sphere {
             center,
             radius,
-            mat_ptr,
+            mat_ptr: mat_ptr.try_into().unwrap(),
             aabox: AABBox::new(
                 center.get_x() - radius,
                 center.get_x() + radius,

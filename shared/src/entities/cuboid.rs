@@ -1,13 +1,13 @@
-use std::{ops::RangeInclusive, sync::Arc};
+use std::{fmt::Debug, ops::RangeInclusive};
 
 use crate::{
     geometry::vec3::{Point3, Vec3},
     hittable::{BoundedHittable, HitRecord, Hittable},
-    material::Material,
+    material::DynMaterial,
     ray::Ray,
 };
 
-use super::{get_axis, AABBox, Bounded, Quad};
+use super::{AABBox, Bounded, Quad, get_axis};
 
 #[derive(Debug, Clone)]
 pub struct Cuboid {
@@ -15,7 +15,12 @@ pub struct Cuboid {
 }
 
 impl Cuboid {
-    pub fn new(p: Point3, q: Point3, mat_ptr: Arc<dyn Material>) -> Self {
+    pub fn new<T>(p: Point3, q: Point3, mat_ptr: T) -> Self
+    where
+        T: TryInto<DynMaterial>,
+        <T as TryInto<DynMaterial>>::Error: Debug,
+    {
+        let mat_ptr = mat_ptr.try_into().unwrap();
         let aabox = AABBox::from(p).enclose(&q);
         let min_p = Point3::new_array(get_axis().map(|axis| *aabox.axis(axis).start()));
         let max_p = Point3::new_array(get_axis().map(|axis| *aabox.axis(axis).end()));
