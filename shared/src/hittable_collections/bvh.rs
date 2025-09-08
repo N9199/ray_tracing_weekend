@@ -1,10 +1,18 @@
 pub use plane_divided::BoundedVolumeHierarchy;
 
 mod plane_divided {
+    use std::ops::RangeInclusive;
+
+    use geometry::{
+        aabox::AABBox,
+        aaplane::AAPlane,
+        bounded::Bounded,
+        vec3::{Point3, Vec3},
+    };
+    use rand::Rng;
+
     use crate::{
-        entities::{AABBox, AAPlane, Bounded},
-        geometry::vec3::Vec3,
-        hittable::{BoundedHittable, HitRecord, Hittable},
+        hittable::{AABoxHit as _, BoundedHittable, HitRecord, Hittable},
         hittable_collections::hittable_list::HittableList,
         ray::Ray,
     };
@@ -18,32 +26,68 @@ mod plane_divided {
         Node {
             left: Box<BoundedVolumeHierarchy>,
             right: Box<BoundedVolumeHierarchy>,
+            len: usize,
             dividing_plane: AAPlane,
         },
     }
 
     impl BoundedVolumeHierarchy {
-        // pub fn depth(&self) -> usize {
-        //     match self {
-        //         BoundedVolumeHierarchy::Leaf(_) => 1,
-        //         BoundedVolumeHierarchy::Node {
-        //             left,
-        //             right,
-        //             dividing_plane: _,
-        //         } => left.depth().max(right.depth()) + 1,
-        //     }
-        // }
+        pub fn depth(&self) -> usize {
+            match self {
+                BoundedVolumeHierarchy::Leaf(_) => 1,
+                BoundedVolumeHierarchy::Node { left, right, .. } => {
+                    left.depth().max(right.depth()) + 1
+                }
+            }
+        }
 
-        // pub const fn node_count(&self) -> usize {
-        //     match self {
-        //         BoundedVolumeHierarchy::Leaf(_) => 1,
-        //         BoundedVolumeHierarchy::Node {
-        //             left,
-        //             right,
-        //             dividing_plane: _,
-        //         } => left.node_count() + right.node_count() + 1,
-        //     }
-        // }
+        pub const fn node_count(&self) -> usize {
+            match self {
+                BoundedVolumeHierarchy::Leaf(_) => 1,
+                BoundedVolumeHierarchy::Node { left, right, .. } => {
+                    left.node_count() + right.node_count() + 1
+                }
+            }
+        }
+
+        pub const fn len(&self) -> usize {
+            match self {
+                BoundedVolumeHierarchy::Leaf(hittable_list) => hittable_list.len(),
+                BoundedVolumeHierarchy::Node { len, .. } => *len,
+            }
+        }
+
+        #[must_use]
+        pub const fn is_empty(&self) -> bool {
+            self.len() == 0
+        }
+
+        fn aux_pdf_value(&self, origin: Point3, direction: Vec3) -> f64 {
+            match self {
+                BoundedVolumeHierarchy::Leaf(hittable_list) => {
+                    hittable_list.pdf_value(origin, direction) * (hittable_list.len() as f64)
+                }
+                BoundedVolumeHierarchy::Node { left, right, .. } => {
+                    left.aux_pdf_value(origin, direction) + right.aux_pdf_value(origin, direction)
+                }
+            }
+        }
+
+        fn aux_random(&self, index: usize, origin: Vec3, rng: &mut dyn rand::RngCore) -> Vec3 {
+            match self {
+                BoundedVolumeHierarchy::Leaf(hittable_list) => hittable_list
+                    .iter_hittable()
+                    .nth(index)
+                    .unwrap()
+                    .random(origin, rng),
+                BoundedVolumeHierarchy::Node { left, right, .. } => match left.len().cmp(&index) {
+                    std::cmp::Ordering::Less => left.aux_random(index, origin, rng),
+                    std::cmp::Ordering::Equal | std::cmp::Ordering::Greater => {
+                        right.aux_random(index - left.len(), origin, rng)
+                    }
+                },
+            }
+        }
 
         // fn inner_into_iter(&self) -> impl Iterator<Item = &'_ HittableList> + '_ {
         //     match self {
@@ -63,7 +107,7 @@ mod plane_divided {
                 Self::Leaf(value)
             } else {
                 let len = value.len();
-                let (left, right, plane) = value.best_split();
+                let (left, right, dividing_plane) = value.best_split();
                 // if len == left.len() {
                 //     // dbg!(plane);
                 //     // dbg!("left");
@@ -82,10 +126,14 @@ mod plane_divided {
                 } else if len == right.len() {
                     Self::Leaf(right)
                 } else {
+                    let left: Box<Self> = Box::new(left.into());
+                    let right: Box<Self> = Box::new(right.into());
+                    let len = left.len() + right.len();
                     Self::Node {
-                        left: Box::new(left.into()),
-                        right: Box::new(right.into()),
-                        dividing_plane: plane,
+                        left,
+                        right,
+                        len,
+                        dividing_plane,
                     }
                 }
             }
@@ -96,35 +144,25 @@ mod plane_divided {
         fn get_aabbox(&self) -> AABBox {
             match self {
                 Self::Leaf(value) => value.get_aabbox(),
-                Self::Node {
-                    left,
-                    right,
-                    dividing_plane: _,
-                } => left.get_aabbox().enclose(&right.get_aabbox()),
+                Self::Node { left, right, .. } => left.get_aabbox().enclose(&right.get_aabbox()),
             }
         }
 
         fn get_surface_area(&self) -> f64 {
             match self {
                 BoundedVolumeHierarchy::Leaf(value) => value.get_surface_area(),
-                BoundedVolumeHierarchy::Node {
-                    left,
-                    right,
-                    dividing_plane: _,
-                } => left.get_surface_area() + right.get_surface_area(),
+                BoundedVolumeHierarchy::Node { left, right, .. } => {
+                    left.get_surface_area() + right.get_surface_area()
+                }
             }
         }
     }
 
     impl Hittable for BoundedVolumeHierarchy {
-        fn hit(&self, r: &Ray, range: std::ops::RangeInclusive<f64>) -> Option<HitRecord<'_>> {
+        fn hit(&self, r: &Ray, range: RangeInclusive<f64>) -> Option<HitRecord<'_>> {
             match self {
                 BoundedVolumeHierarchy::Leaf(list) => list.hit(r, range),
-                BoundedVolumeHierarchy::Node {
-                    left,
-                    right,
-                    dividing_plane: _,
-                } => {
+                BoundedVolumeHierarchy::Node { left, right, .. } => {
                     match (
                         left.get_aabbox()
                             .is_hit(r, range.clone())
@@ -148,29 +186,35 @@ mod plane_divided {
         }
 
         //TODO: Implement this using iterators
-        fn pdf_value(&self, _origin: Vec3, _direction: Vec3) -> f64 {
-            0.
+        fn pdf_value(&self, origin: Vec3, direction: Vec3) -> f64 {
+            let len = self.len();
+            self.aux_pdf_value(origin, direction) / (len as f64)
         }
 
         //TODO: Implement this using iterators
-        fn random(&self, _origin: Vec3, _rng: &mut dyn rand::RngCore) -> Vec3 {
-            Vec3::from([1., 0., 0.])
+        fn random(&self, origin: Vec3, rng: &mut dyn rand::RngCore) -> Vec3 {
+            let len = self.len();
+            let index = rng.gen_range(0..len);
+            self.aux_random(index, origin, rng)
         }
     }
 
     impl BoundedHittable for BoundedVolumeHierarchy {}
 }
 
+#[allow(unused)]
 mod flat {
     use core::iter::Iterator;
     use std::{any::TypeId, mem::MaybeUninit};
 
     use arrayvec::ArrayVec;
-
-    use crate::{
-        entities::{AABBox, Axis, Bounded, get_axis},
-        hittable_collections::hittable_list::HittableList,
+    use geometry::{
+        aabox::AABBox,
+        aaplane::{Axis, get_axis},
+        bounded::Bounded,
     };
+
+    use crate::hittable_collections::hittable_list::HittableList;
 
     use super::super::hittable_list::RawHittableVec;
 

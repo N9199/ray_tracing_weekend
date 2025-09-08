@@ -6,10 +6,9 @@ use rand::{
     thread_rng,
 };
 
-use crate::{
-    geometry::vec3::{Point3, Vec3},
-    utils::random_utils::UnitSphere,
-};
+use geometry::vec3::{Point3, Vec3};
+
+use crate::utils::random_utils::UnitSphere;
 
 #[derive(Debug, Clone)]
 pub struct Perlin {
@@ -94,7 +93,7 @@ impl Perlin {
         accum
     }
 
-    fn perlin_interpolation(c: [[[Vec3; 2]; 2]; 2], u: f64, v: f64, w: f64) -> f64 {
+    pub fn perlin_interpolation(c: [[[Vec3; 2]; 2]; 2], u: f64, v: f64, w: f64) -> f64 {
         iproduct!((0..2), (0..2), (0..2))
             .map(|(i, j, k)| {
                 let temp = c[i][j][k];
@@ -108,7 +107,7 @@ impl Perlin {
             .sum()
     }
 
-    fn trilinear_interpolation(c: [[[f64; 2]; 2]; 2], u: f64, v: f64, w: f64) -> f64 {
+    pub fn trilinear_interpolation(c: [[[f64; 2]; 2]; 2], u: f64, v: f64, w: f64) -> f64 {
         iproduct!((0..2), (0..2), (0..2))
             .map(|(i, j, k)| {
                 let temp = c[i][j][k];

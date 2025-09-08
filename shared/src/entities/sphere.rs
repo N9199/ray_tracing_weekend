@@ -8,18 +8,18 @@ use std::{
 
 use rand::{Rng, distributions::Standard};
 
+use geometry::{
+    aabox::AABBox,
+    bounded::Bounded,
+    onb::Onb,
+    vec3::{Point3, Vec3},
+};
+
 use crate::{
-    entities::Bounded,
-    geometry::{
-        onb::Onb,
-        vec3::{Point3, Vec3},
-    },
     hittable::{BoundedHittable, HitRecord, Hittable},
     material::DynMaterial,
     ray::Ray,
 };
-
-use super::AABBox;
 
 #[derive(Debug, Clone)]
 pub struct Sphere {

@@ -7,9 +7,14 @@ pub use vector_based::HittableList;
 mod hash_map_based {
     use rand::seq::IteratorRandom as _;
 
+    use geometry::{
+        aabox::AABBox,
+        aaplane::{AAPlane, Axis, get_axis},
+        bounded::Bounded,
+        vec3::{Point3, Vec3},
+    };
+
     use crate::{
-        entities::{AABBox, AAPlane, Axis, Bounded, get_axis},
-        geometry::vec3::{Point3, Vec3},
         hittable::{BoundedHittable, HitRecord, Hittable},
         hittable_collections::hittable_list::RawHittableVec,
         ray::Ray,
@@ -216,9 +221,14 @@ mod hash_map_based {
 mod vector_based {
     use rand::seq::IteratorRandom as _;
 
+    use geometry::{
+        aabox::AABBox,
+        aaplane::{AAPlane, Axis, get_axis},
+        bounded::Bounded,
+        vec3::{Point3, Vec3},
+    };
+
     use crate::{
-        entities::{AABBox, AAPlane, Axis, Bounded, get_axis},
-        geometry::vec3::{Point3, Vec3},
         hittable::{BoundedHittable, HitRecord, Hittable},
         hittable_collections::hittable_list::RawHittableVec,
         ray::Ray,

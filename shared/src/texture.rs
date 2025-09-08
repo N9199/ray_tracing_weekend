@@ -4,10 +4,9 @@ use std::{
     sync::Arc,
 };
 
-use crate::{
-    geometry::vec3::{Colour, Point3, Vec3},
-    perlin::Perlin,
-};
+use geometry::vec3::{Point3, Vec3};
+
+use crate::{colour::Colour, perlin::Perlin};
 
 pub trait Texture: Debug + Sync + Send {
     fn get_colour(&self, u: f64, v: f64, point: Point3) -> Colour;

@@ -2,12 +2,10 @@ use std::sync::Arc;
 
 use criterion::{Criterion, criterion_group, criterion_main};
 use rand::{Rng, SeedableRng, rngs::SmallRng};
+
+use geometry::vec3::{Point3, Vec3};
 use shared::{
-    entities::Sphere,
-    geometry::vec3::{Colour, Point3, Vec3},
-    hittable::Hittable,
-    material::Lambertian,
-    ray::Ray,
+    colour::Colour, entities::Sphere, hittable::Hittable, material::Lambertian, ray::Ray,
 };
 
 fn sphere_hits(c: &mut Criterion) {

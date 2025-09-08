@@ -7,14 +7,17 @@ use std::{
 
 use rand::{Rng as _, distributions::Open01};
 
+use geometry::{
+    aabox::AABBox,
+    bounded::Bounded,
+    vec3::{Point3, Vec3},
+};
+
 use crate::{
-    geometry::vec3::{Point3, Vec3},
     hittable::{BoundedHittable, HitRecord, Hittable},
     material::DynMaterial,
     ray::Ray,
 };
-
-use super::{AABBox, Bounded};
 
 #[derive(Debug, Clone)]
 pub struct Quad {

@@ -2,13 +2,16 @@ use std::sync::Arc;
 
 use rand::{Rng as _, SeedableRng, distributions::Standard, rngs::SmallRng, thread_rng};
 
+use geometry::{
+    aaplane::Axis,
+    transformations::{Transformable as _, rotation},
+    vec3::{Point3, Vec3},
+};
+
 use crate::{
     camera::CameraBuilder,
-    entities::{
-        Axis, Cuboid, Plane, Quad, Sphere,
-        transformations::{rotation, transform},
-    },
-    geometry::vec3::{Colour, Point3, Vec3},
+    colour::Colour,
+    entities::{Cuboid, Plane, Quad, Sphere},
     hittable::BoundedHittable,
     hittable_collections::{bvh::BoundedVolumeHierarchy, hittable_list::HittableList},
     material::{Dialectric, DiffuseLight, INVISIBLE_PTR, Lambertian, Material, Metal},
@@ -332,14 +335,12 @@ pub fn cornell_box() -> (
     ));
 
     world.add(
-        transform(
-            Cuboid::new(
-                Point3::default(),
-                Point3::new(165., 330., 165.),
-                white.clone(),
-            ),
-            Vec3::new(265., 0., 295.),
+        Cuboid::new(
+            Point3::default(),
+            Point3::new(165., 330., 165.),
+            white.clone(),
         )
+        .transform(Vec3::new(265., 0., 295.))
         .transform(rotation(15., Axis::Y)),
     );
     // world.add(
@@ -603,20 +604,26 @@ pub fn simple_transform() -> (
         Arc::new(DiffuseLight::new_with_colour(Colour::new(1., 0., 0.))),
     );
 
-    world.add(transform(original.clone(), Vec3::new(-0.5, 0., -0.5)));
+    world.add(original.clone().transform(Vec3::new(-0.5, 0., -0.5)));
 
-    world.add(transform(original.clone(), Vec3::new(2., 0., 2.)));
+    world.add(original.clone().transform(Vec3::new(2., 0., 2.)));
     world.add(
-        transform(original.clone(), Vec3::new(-3., 0., -3.)).transform(rotation(45., Axis::Y)),
+        original
+            .clone()
+            .transform(Vec3::new(-3., 0., -3.))
+            .transform(rotation(45., Axis::Y)),
     );
 
     let mut lights = HittableList::default();
 
-    lights.add(transform(original.clone(), Vec3::new(-0.5, 0., -0.5)));
+    lights.add(original.clone().transform(Vec3::new(-0.5, 0., -0.5)));
 
-    lights.add(transform(original.clone(), Vec3::new(2., 0., 2.)));
+    lights.add(original.clone().transform(Vec3::new(2., 0., 2.)));
     lights.add(
-        transform(original.clone(), Vec3::new(-3., 0., -3.)).transform(rotation(45., Axis::Y)),
+        original
+            .clone()
+            .transform(Vec3::new(-3., 0., -3.))
+            .transform(rotation(45., Axis::Y)),
     );
 
     let lookfrom = Point3::new(0., 20., 0.);
