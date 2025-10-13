@@ -5,6 +5,7 @@ edition = "2024"
 
 [features]
 hit_counters = []
+euclid = ["geometry/euclid"]
 
 [profile.release]
 debug = true

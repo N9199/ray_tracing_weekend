@@ -21,6 +21,8 @@ use crate::{
     ray::Ray,
     utils::random_utils::UnitDisk,
 };
+#[cfg(feature = "euclid")]
+use geometry::vec3::Vec3Ext as _;
 use geometry::vec3::{Point3, Vec3};
 
 #[derive(Debug, Clone, Copy)]
@@ -34,7 +36,7 @@ pub struct CameraBuilder {
     vfov: f64,
     lookfrom: Point3,
     lookat: Point3,
-    vup: Point3,
+    vup: Vec3,
     defocus_angle: f64,
     focus_dist: f64,
 }
@@ -96,7 +98,7 @@ impl CameraBuilder {
     pub const fn with_lookat(self, lookat: Point3) -> Self {
         Self { lookat, ..self }
     }
-    pub const fn with_vup(self, vup: Point3) -> Self {
+    pub const fn with_vup(self, vup: Vec3) -> Self {
         Self { vup, ..self }
     }
     pub const fn with_defocus_angle(self, defocus_angle: f64) -> Self {
@@ -169,9 +171,9 @@ impl CameraBuilder {
             } else {
                 w
             }
-            .unit_vec()
+            .normalize()
         };
-        let u = vup.cross(w).unit_vec();
+        let u = vup.cross(w).normalize();
         let v = w.cross(u);
 
         let viewport_u = u * viewport_width;
@@ -224,25 +226,35 @@ impl Default for CameraBuilder {
 
 #[derive(Debug, Clone)]
 pub struct Camera {
+    #[expect(unused)]
     aspect_ratio: f64,
     image_width: u32,
     image_height: u32,
     samples_per_pixel: u16,
     max_depth: u32,
     background: Colour,
+    #[expect(unused)]
     vfov: f64,
+    #[expect(unused)]
     lookfrom: Point3,
+    #[expect(unused)]
     lookat: Point3,
-    vup: Point3,
+    #[expect(unused)]
+    vup: Vec3,
     defocus_angle: f64,
+    #[expect(unused)]
     focus_dist: f64,
+    #[expect(unused)]
     pixel_samples_scale: f64,
     center: Point3,
     pixel00_loc: Point3,
     pixel_delta_u: Vec3,
     pixel_delta_v: Vec3,
+    #[expect(unused)]
     u: Vec3,
+    #[expect(unused)]
     v: Vec3,
+    #[expect(unused)]
     w: Vec3,
     defocus_disk_u: Vec3,
     defocus_disk_v: Vec3,
@@ -251,6 +263,7 @@ pub struct Camera {
 pub(crate) enum DebugModes {
     Off,
     Normal,
+    #[cfg_attr(not(miri), expect(unused))]
     Miri,
 }
 
@@ -266,16 +279,14 @@ impl Camera {
             + self.pixel_delta_v * (j as f64 + offset.1);
 
         debug_assert!(
-            pixel_sample.get_x().is_finite()
-                && pixel_sample.get_y().is_finite()
-                && pixel_sample.get_z().is_finite()
+            pixel_sample.x.is_finite() && pixel_sample.y.is_finite() && pixel_sample.z.is_finite()
         );
 
         let origin = if self.defocus_angle <= f64::EPSILON {
             self.center
         } else {
             let p = rng.sample(UnitDisk);
-            self.center + self.defocus_disk_u * p.get_x() + self.defocus_disk_v * p.get_z()
+            self.center + self.defocus_disk_u * p.x + self.defocus_disk_v * p.z
         };
         let direction = pixel_sample - origin;
         Ray::new(origin, direction)
@@ -344,12 +355,15 @@ impl Camera {
 
         #[cfg(feature = "hit_counters")]
         {
-            use crate::entities::{PLANE_HIT_COUNTER, QUAD_HIT_COUNTER, SPHERE_HIT_COUNTER};
+            use crate::entities::{
+                PLANE_HIT_COUNTER, QUAD_HIT_COUNTER, SPHERE_HIT_COUNTER, TRIANGLES_HIT_COUNTER,
+            };
             use crate::hittable::AABOX_HIT_COUNTER;
             use crate::material::LIGHT_HIT_COUNTER;
 
             let hit_counter = HIT_COUNTER.load(Ordering::Acquire);
             let aabox_counter = AABOX_HIT_COUNTER.load(atomic::Ordering::Acquire);
+            let triangle_counter = TRIANGLES_HIT_COUNTER.load(atomic::Ordering::Acquire);
             let sphere_counter = SPHERE_HIT_COUNTER.load(atomic::Ordering::Acquire);
             let quad_counter = QUAD_HIT_COUNTER.load(atomic::Ordering::Acquire);
             let plane_counter = PLANE_HIT_COUNTER.load(atomic::Ordering::Acquire);
@@ -357,6 +371,7 @@ impl Camera {
             dbg!(
                 hit_counter,
                 aabox_counter,
+                triangle_counter,
                 sphere_counter,
                 quad_counter,
                 plane_counter,

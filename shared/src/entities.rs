@@ -3,13 +3,18 @@ mod plane;
 mod quadrilateral;
 mod sphere;
 pub mod transformations;
+mod triangles;
 pub use cuboid::Cuboid;
 pub use plane::Plane;
 pub use quadrilateral::Quad;
 pub use sphere::Sphere;
+pub use triangles::Triangle;
 
 // #[cfg(feature = "hit_counters")]
 // pub(crate) use aabox::AABOX_HIT_COUNTER;
+
+#[cfg(feature = "hit_counters")]
+pub(crate) use triangles::TRIANGLES_HIT_COUNTER;
 
 #[cfg(feature = "hit_counters")]
 pub(crate) use plane::PLANE_HIT_COUNTER;

@@ -1,6 +1,8 @@
 pub mod slice {
     use std::{fmt::Debug, ops::RangeInclusive};
 
+    #[cfg(feature = "euclid")]
+    use geometry::aabox::Box3DExt as _;
     use geometry::{aabox::AABBox, bounded::Bounded};
 
     use crate::{
@@ -112,7 +114,7 @@ pub mod random_utils {
                 let mut inner = [(); 3].map(|_| 2. * rng.sample::<f64, _>(Standard) - 1.);
                 inner.shuffle(rng);
                 let out = Vec3::from(inner);
-                if out.length_squared() < 1. {
+                if out.square_length() < 1. {
                     return out;
                 }
             }
@@ -134,7 +136,7 @@ pub mod random_utils {
                     0.,
                     2. * rng.sample::<f64, _>(Standard) - 1.,
                 );
-                if out.length_squared() < 1. {
+                if out.square_length() < 1. {
                     return out;
                 }
             }

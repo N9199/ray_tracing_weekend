@@ -11,12 +11,8 @@ use shared::{hittable::AABoxHit as _, ray::Ray};
 fn aabox_hits(c: &mut Criterion) {
     let mut rng = SmallRng::from_entropy();
     let aabox = AABBox::new(
-        rng.r#gen(),
-        rng.r#gen(),
-        rng.r#gen(),
-        rng.r#gen(),
-        rng.r#gen(),
-        rng.r#gen(),
+        Point3::new(rng.r#gen(), rng.r#gen(), rng.r#gen()),
+        Point3::new(rng.r#gen(), rng.r#gen(), rng.r#gen()),
     );
     let mut group = c.benchmark_group("aabox is_hit");
     group.bench_function("aabox hit test", |b| {

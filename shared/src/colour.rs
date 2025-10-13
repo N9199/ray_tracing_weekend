@@ -17,9 +17,9 @@ impl Colour {
         colour: &Colour,
         samples_per_pixel: i32,
     ) -> core::fmt::Result {
-        let r = colour.0.get_x();
-        let g = colour.0.get_y();
-        let b = colour.0.get_z();
+        let r = colour.0.x;
+        let g = colour.0.y;
+        let b = colour.0.z;
 
         let scale = (samples_per_pixel as f64).recip();
 
@@ -43,8 +43,8 @@ impl Colour {
         Self(vec)
     }
 
-    pub const fn from_array(inner: [f64; 3]) -> Self {
-        Self(Vec3::new_array(inner))
+    pub fn from_array(inner: [f64; 3]) -> Self {
+        Self(Vec3::from(inner))
     }
 
     // TODO: When const closure are stable and when Fn traits are "constified" make this const
@@ -52,7 +52,7 @@ impl Colour {
     pub fn fix_nan(self) -> Self {
         Colour::from_array(
             self.into_inner()
-                .inner()
+                .to_array()
                 .map(|v| if v.is_nan() { 0.0 } else { v }),
         )
     }
@@ -68,7 +68,7 @@ impl From<Vec3> for Colour {
 impl From<[f64; 3]> for Colour {
     #[inline]
     fn from(value: [f64; 3]) -> Self {
-        Self(Vec3::new_array(value))
+        Self(Vec3::from(value))
     }
 }
 
@@ -101,13 +101,13 @@ impl Mul for Colour {
 
     #[inline]
     fn mul(self, rhs: Self) -> Self::Output {
-        Self(self.0 * rhs.0)
+        Self(self.0.component_mul(rhs.0))
     }
 }
 
 impl MulAssign for Colour {
     fn mul_assign(&mut self, rhs: Self) {
-        self.0 *= rhs.0;
+        self.0 = self.0.component_mul(rhs.0);
     }
 }
 
@@ -123,13 +123,13 @@ impl Div for Colour {
     type Output = Self;
 
     fn div(self, rhs: Colour) -> Self::Output {
-        Self(self.0 / rhs.0)
+        Self(self.0.component_div(rhs.0))
     }
 }
 
 impl DivAssign for Colour {
     fn div_assign(&mut self, rhs: Self) {
-        self.0 /= rhs.0;
+        self.0 = self.0.component_div(rhs.0);
     }
 }
 

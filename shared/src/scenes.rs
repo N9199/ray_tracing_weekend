@@ -5,7 +5,7 @@ use rand::{Rng as _, SeedableRng, distributions::Standard, rngs::SmallRng, threa
 use geometry::{
     aaplane::Axis,
     transformations::{Transformable as _, rotation},
-    vec3::{Point3, Vec3},
+    vec3::{Point3, Translation3, Vec3},
 };
 
 use crate::{
@@ -340,7 +340,7 @@ pub fn cornell_box() -> (
             Point3::new(165., 330., 165.),
             white.clone(),
         )
-        .transform(Vec3::new(265., 0., 295.))
+        .transform(Translation3::new(265., 0., 295.))
         .transform(rotation(15., Axis::Y)),
     );
     // world.add(
@@ -604,25 +604,33 @@ pub fn simple_transform() -> (
         Arc::new(DiffuseLight::new_with_colour(Colour::new(1., 0., 0.))),
     );
 
-    world.add(original.clone().transform(Vec3::new(-0.5, 0., -0.5)));
-
-    world.add(original.clone().transform(Vec3::new(2., 0., 2.)));
     world.add(
         original
             .clone()
-            .transform(Vec3::new(-3., 0., -3.))
+            .transform(Translation3::new(-0.5, 0., -0.5)),
+    );
+
+    world.add(original.clone().transform(Translation3::new(2., 0., 2.)));
+    world.add(
+        original
+            .clone()
+            .transform(Translation3::new(-3., 0., -3.))
             .transform(rotation(45., Axis::Y)),
     );
 
     let mut lights = HittableList::default();
 
-    lights.add(original.clone().transform(Vec3::new(-0.5, 0., -0.5)));
-
-    lights.add(original.clone().transform(Vec3::new(2., 0., 2.)));
     lights.add(
         original
             .clone()
-            .transform(Vec3::new(-3., 0., -3.))
+            .transform(Translation3::new(-0.5, 0., -0.5)),
+    );
+
+    lights.add(original.clone().transform(Translation3::new(2., 0., 2.)));
+    lights.add(
+        original
+            .clone()
+            .transform(Translation3::new(-3., 0., -3.))
             .transform(rotation(45., Axis::Y)),
     );
 

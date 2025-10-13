@@ -40,20 +40,16 @@ impl Sphere {
             radius,
             mat_ptr: mat_ptr.try_into().unwrap(),
             aabox: AABBox::new(
-                center.get_x() - radius,
-                center.get_x() + radius,
-                center.get_y() - radius,
-                center.get_y() + radius,
-                center.get_z() - radius,
-                center.get_z() + radius,
+                Point3::new(center.x - radius, center.y - radius, center.z - radius),
+                Point3::new(center.x + radius, center.y + radius, center.z + radius),
             ),
         }
     }
 
     pub fn get_sphere_uv(point: Point3) -> (f64, f64) {
         (
-            libm::atan2(point.get_z().neg(), point.get_x()).div(TAU),
-            point.get_y().acos().div(PI),
+            libm::atan2(point.z.neg(), point.x).div(TAU),
+            point.y.acos().div(PI),
         )
     }
 }
@@ -65,9 +61,9 @@ impl Hittable for Sphere {
     fn hit(&self, r: &Ray, range: RangeInclusive<f64>) -> Option<HitRecord<'_>> {
         // dbg!("Sphere");
         let oc = r.get_origin() - self.center;
-        let a = r.get_direction().length_squared();
+        let a = r.get_direction().square_length();
         let half_b = r.get_direction().dot(oc);
-        let c = oc.length_squared() - self.radius * self.radius;
+        let c = oc.square_length() - self.radius * self.radius;
         let discriminant = half_b * half_b - a * c;
 
         (discriminant > 0.).then_some(())?;
@@ -85,7 +81,7 @@ impl Hittable for Sphere {
 
         let p = r.at(t);
         let outward_normal = (p - self.center) / self.radius;
-        let (u, v) = Sphere::get_sphere_uv(outward_normal);
+        let (u, v) = Sphere::get_sphere_uv(outward_normal.to_point());
         // dbg!("Sphere hit!", self, r, t);
 
         #[cfg(feature = "hit_counters")]
@@ -105,7 +101,7 @@ impl Hittable for Sphere {
     fn pdf_value(&self, origin: Point3, direction: Vec3) -> f64 {
         match self.hit(&Ray::new(origin, direction), (0.)..=f64::INFINITY) {
             Some(_) => {
-                let distance_squared = (self.center - origin).length_squared();
+                let distance_squared = (self.center - origin).square_length();
                 let cos_theta_max = (1. - self.radius * self.radius / distance_squared).sqrt();
                 let solid_angle = 2. * PI * (1. - cos_theta_max);
                 1. / solid_angle
