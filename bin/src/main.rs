@@ -90,6 +90,7 @@ fn main() {
     let mut file = BufWriter::new(File::create(file_name).unwrap());
     file.write_fmt(format_args!("P3\n{image_width} {image_height}\n255\n"))
         .unwrap();
+    #[cfg_attr(not(debug_assertions), expect(unused))]
     for (j, i, val) in out
         .into_iter()
         .enumerate()
