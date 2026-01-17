@@ -32,7 +32,7 @@ impl Plane {
     {
         Self {
             point,
-            normal: normal.unit_vec(),
+            normal: normal.normalize(),
             mat_ptr: mat_ptr.try_into().unwrap(),
         }
     }
@@ -42,15 +42,15 @@ impl Plane {
         const V: Vec3 = Vec3::new(0., 1., 0.);
         let theta = f64::atan2(self.normal.cross(V).length(), self.normal.dot(V));
         if theta <= f64::EPSILON {
-            return (point.get_x(), point.get_z());
+            return (point.x, point.z);
         }
-        let k = self.normal.cross(V).unit_vec();
+        let k = self.normal.cross(V).normalize();
         let vec_to_rotate = point - self.point;
         let rotated_vec = vec_to_rotate
             .mul(theta.cos())
             .add(k.cross(vec_to_rotate).mul(theta.sin()))
             .add(k.mul(k.dot(vec_to_rotate)).mul((1.).sub(theta.cos())));
-        (rotated_vec.get_x().fract(), rotated_vec.get_z().fract())
+        (rotated_vec.x.fract(), rotated_vec.z.fract())
     }
 }
 
@@ -77,28 +77,28 @@ impl Hittable for Plane {
 
 impl Bounded for Plane {
     fn get_aabbox(&self) -> AABBox {
-        let (x_min, x_max) = if self.normal.get_z().abs() < f64::EPSILON
-            && self.normal.get_y().abs() < f64::EPSILON
-        {
-            (0., 0.)
-        } else {
-            (-f64::INFINITY, f64::INFINITY)
-        };
-        let (y_min, y_max) = if self.normal.get_x().abs() < f64::EPSILON
-            && self.normal.get_z().abs() < f64::EPSILON
-        {
-            (0., 0.)
-        } else {
-            (-f64::INFINITY, f64::INFINITY)
-        };
-        let (z_min, z_max) = if self.normal.get_x().abs() < f64::EPSILON
-            && self.normal.get_y().abs() < f64::EPSILON
-        {
-            (0., 0.)
-        } else {
-            (-f64::INFINITY, f64::INFINITY)
-        };
-        AABBox::new(x_min, x_max, y_min, y_max, z_min, z_max)
+        let (x_min, x_max) =
+            if self.normal.z.abs() < f64::EPSILON && self.normal.y.abs() < f64::EPSILON {
+                (0., 0.)
+            } else {
+                (-f64::INFINITY, f64::INFINITY)
+            };
+        let (y_min, y_max) =
+            if self.normal.x.abs() < f64::EPSILON && self.normal.z.abs() < f64::EPSILON {
+                (0., 0.)
+            } else {
+                (-f64::INFINITY, f64::INFINITY)
+            };
+        let (z_min, z_max) =
+            if self.normal.x.abs() < f64::EPSILON && self.normal.y.abs() < f64::EPSILON {
+                (0., 0.)
+            } else {
+                (-f64::INFINITY, f64::INFINITY)
+            };
+        AABBox::new(
+            Point3::new(x_min, y_min, z_min),
+            Point3::new(x_max, y_max, z_max),
+        )
     }
 
     fn get_surface_area(&self) -> f64 {

@@ -3,6 +3,8 @@ pub use plane_divided::BoundedVolumeHierarchy;
 mod plane_divided {
     use std::ops::RangeInclusive;
 
+    #[cfg(feature = "euclid")]
+    use geometry::aabox::Box3DExt as _;
     use geometry::{
         aabox::AABBox,
         aaplane::AAPlane,
@@ -73,7 +75,7 @@ mod plane_divided {
             }
         }
 
-        fn aux_random(&self, index: usize, origin: Vec3, rng: &mut dyn rand::RngCore) -> Vec3 {
+        fn aux_random(&self, index: usize, origin: Point3, rng: &mut dyn rand::RngCore) -> Vec3 {
             match self {
                 BoundedVolumeHierarchy::Leaf(hittable_list) => hittable_list
                     .iter_hittable()
@@ -186,13 +188,13 @@ mod plane_divided {
         }
 
         //TODO: Implement this using iterators
-        fn pdf_value(&self, origin: Vec3, direction: Vec3) -> f64 {
+        fn pdf_value(&self, origin: Point3, direction: Vec3) -> f64 {
             let len = self.len();
             self.aux_pdf_value(origin, direction) / (len as f64)
         }
 
         //TODO: Implement this using iterators
-        fn random(&self, origin: Vec3, rng: &mut dyn rand::RngCore) -> Vec3 {
+        fn random(&self, origin: Point3, rng: &mut dyn rand::RngCore) -> Vec3 {
             let len = self.len();
             let index = rng.gen_range(0..len);
             self.aux_random(index, origin, rng)
@@ -202,12 +204,15 @@ mod plane_divided {
     impl BoundedHittable for BoundedVolumeHierarchy {}
 }
 
-#[allow(unused)]
+#[expect(unused)]
 mod flat {
     use core::iter::Iterator;
     use std::{any::TypeId, mem::MaybeUninit};
 
     use arrayvec::ArrayVec;
+
+    #[cfg(feature = "euclid")]
+    use geometry::aabox::Box3DExt as _;
     use geometry::{
         aabox::AABBox,
         aaplane::{Axis, get_axis},

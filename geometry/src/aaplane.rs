@@ -6,6 +6,7 @@ pub enum Axis {
     Z = 2,
 }
 
+#[must_use]
 pub const fn get_axis() -> [Axis; 3] {
     [Axis::X, Axis::Y, Axis::Z]
 }

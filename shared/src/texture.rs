@@ -92,7 +92,7 @@ impl Texture for NoiseTexture {
         Vec3::new(0.5, 0.5, 0.5)
             .mul(
                 self.scale
-                    .mul(point.get_z())
+                    .mul(point.z)
                     .add(self.noise.turb(point, 7).mul(10.))
                     .sin()
                     .add(1.),

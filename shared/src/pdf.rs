@@ -43,7 +43,7 @@ impl CosinePdf {
 
 impl Pdf for CosinePdf {
     fn value(&self, direction: &Vec3) -> f64 {
-        let cosine_theta = direction.unit_vec().dot(self.uvw.get_w()) / PI;
+        let cosine_theta = direction.normalize().dot(self.uvw.get_w()) / PI;
         cosine_theta.max(0.)
     }
 

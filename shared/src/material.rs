@@ -5,6 +5,8 @@ use std::{f64::consts::PI, fmt::Debug, sync::Arc};
 use rand::{Rng, distributions::Open01};
 
 use geometry::vec3::Point3;
+#[cfg(feature = "euclid")]
+use geometry::vec3::Vec3Ext as _;
 
 use crate::{
     colour::Colour,
@@ -50,7 +52,7 @@ mod dyn_util {
     pub use dyn_enum::DynMaterial;
 
     // Currently UB
-    #[allow(unused)]
+    #[expect(unused)]
     mod transmute {
         use std::{fmt::Debug, mem::MaybeUninit, ops::Deref, ptr::drop_in_place};
 
@@ -371,7 +373,7 @@ impl Material for Lambertian {
     }
 
     fn scattering_pdf(&self, _ray_in: &Ray, rec: &HitRecord<'_>, scattered: &Ray) -> f64 {
-        let cos_theta = rec.get_normal().dot(scattered.get_direction().unit_vec()) / PI;
+        let cos_theta = rec.get_normal().dot(scattered.get_direction().normalize()) / PI;
         cos_theta.max(0.)
     }
 }
@@ -412,7 +414,7 @@ impl Material for Metal {
         rec: &HitRecord<'_>,
         rng: &mut dyn rand::RngCore,
     ) -> Option<ScatterRecord> {
-        let reflected = ray_in.get_direction().unit_vec().reflect(rec.get_normal());
+        let reflected = ray_in.get_direction().normalize().reflect(rec.get_normal());
         let reflected = Ray::new(rec.get_p(), reflected + rng.sample(UnitSphere) * self.fuzz);
         (reflected.get_direction().dot(rec.get_normal()) > 0.).then_some(ScatterRecord {
             attenuation: self.albedo,
@@ -467,7 +469,7 @@ impl Material for Dialectric {
         } else {
             self.index_of_refraction
         };
-        let unit_direction = ray_in.get_direction().unit_vec();
+        let unit_direction = ray_in.get_direction().normalize();
 
         let cos_theta = unit_direction.dot(-rec.get_normal()).min(1.);
         let sin_theta = (1. - cos_theta * cos_theta).sqrt();

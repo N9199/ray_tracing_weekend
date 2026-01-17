@@ -1,6 +1,8 @@
 mod type_shit {
     use std::{alloc::Layout, fmt::Debug, slice};
 
+    #[cfg(feature = "euclid")]
+    use geometry::aabox::Box3DExt as _;
     use geometry::{
         aaplane::{AAPlane, Axis},
         bounded::Bounded,
@@ -119,6 +121,8 @@ use std::{
 };
 
 use crossbeam::atomic::AtomicCell;
+#[cfg(feature = "euclid")]
+use geometry::aabox::Box3DExt as _;
 use geometry::{
     aabox::AABBox,
     aaplane::{AAPlane, Axis},
@@ -203,6 +207,7 @@ impl RawHittableVec {
         self.len
     }
 
+    #[expect(unused)]
     pub fn sort_subslice_by_axis<R: RangeBounds<usize> + Copy>(&mut self, range: R, axis: Axis) {
         let start_bound = match range.start_bound() {
             Bound::Included(val) => 0.max(*val),
@@ -221,6 +226,7 @@ impl RawHittableVec {
         (self.fns.sort_by_axis)(start_ptr.cast_mut(), end_bound, axis);
     }
 
+    #[expect(unused)]
     pub fn sort_by_axis(&mut self, axis: Axis) {
         (self.fns.sort_by_axis)(self.ptr, self.len, axis)
     }

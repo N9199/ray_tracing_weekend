@@ -18,6 +18,8 @@ mod aabox_extend {
     #[cfg(feature = "hit_counters")]
     use std::sync::atomic::{self, AtomicU32};
 
+    #[cfg(feature = "euclid")]
+    use geometry::aabox::Box3DExt as _;
     use geometry::{aabox::AABBox, aaplane, bounded::Bounded};
 
     use crate::ray::Ray;
@@ -39,17 +41,17 @@ mod aabox_extend {
             let (y_min, y_max) = self.axis(aaplane::Axis::Y).into_inner();
             let (z_min, z_max) = self.axis(aaplane::Axis::Z).into_inner();
             // // dbg!(r);
-            let x_tmin = (x_min - r.get_origin().get_x()) / r.get_direction().get_x();
-            let x_tmax = (x_max - r.get_origin().get_x()) / r.get_direction().get_x();
-            let (x_tmin, x_tmax) = if r.get_direction().get_x().is_sign_negative() {
+            let x_tmin = (x_min - r.get_origin().x) / r.get_direction().x;
+            let x_tmax = (x_max - r.get_origin().x) / r.get_direction().x;
+            let (x_tmin, x_tmax) = if r.get_direction().x.is_sign_negative() {
                 (x_tmax, x_tmin)
             } else {
                 (x_tmin, x_tmax)
             };
             let (tmin, tmax) = (x_tmin, x_tmax);
-            let y_tmin = (y_min - r.get_origin().get_y()) / r.get_direction().get_y();
-            let y_tmax = (y_max - r.get_origin().get_y()) / r.get_direction().get_y();
-            let (y_tmin, y_tmax) = if r.get_direction().get_y().is_sign_negative() {
+            let y_tmin = (y_min - r.get_origin().y) / r.get_direction().y;
+            let y_tmax = (y_max - r.get_origin().y) / r.get_direction().y;
+            let (y_tmin, y_tmax) = if r.get_direction().y.is_sign_negative() {
                 (y_tmax, y_tmin)
             } else {
                 (y_tmin, y_tmax)
@@ -59,9 +61,9 @@ mod aabox_extend {
                 return None;
             }
             let (tmin, tmax) = (tmin.max(y_tmin), tmax.min(y_tmax));
-            let z_tmin = (z_min - r.get_origin().get_z()) / r.get_direction().get_z();
-            let z_tmax = (z_max - r.get_origin().get_z()) / r.get_direction().get_z();
-            let (z_tmin, z_tmax) = if r.get_direction().get_z().is_sign_negative() {
+            let z_tmin = (z_min - r.get_origin().z) / r.get_direction().z;
+            let z_tmax = (z_max - r.get_origin().z) / r.get_direction().z;
+            let (z_tmin, z_tmax) = if r.get_direction().z.is_sign_negative() {
                 (z_tmax, z_tmin)
             } else {
                 (z_tmin, z_tmax)
@@ -162,7 +164,7 @@ impl<'a> HitRecord<'a> {
     }
 
     #[inline]
-    pub(crate) const fn get_mut_p(&mut self) -> &mut Vec3 {
+    pub(crate) const fn get_mut_p(&mut self) -> &mut Point3 {
         &mut self.p
     }
 }
