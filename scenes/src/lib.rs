@@ -8,7 +8,7 @@ use geometry::{
     vec3::{Point3, Translation3, Vec3},
 };
 
-use crate::{
+use shared::{
     camera::CameraBuilder,
     colour::Colour,
     entities::{Cuboid, Plane, Quad, Sphere},

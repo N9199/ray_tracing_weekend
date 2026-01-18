@@ -324,9 +324,6 @@ pub const INVISIBLE_PTR: &dyn Material = &Invisible;
 
 impl Material for Invisible {}
 
-// TODO: Make it so
-// const INVISIBLE_PTR: &Invisible = &Invisible;
-
 pub struct Lambertian {
     texture: Arc<dyn Texture>,
 }

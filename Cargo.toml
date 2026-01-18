@@ -4,7 +4,7 @@ cargo-features = ["codegen-backend"]
 resolver = '3'
 members = [
     "bin", "geometry",
-    "shared",
+    "shared", "integration-tests",
 ]
 
 [workspace.lints.clippy]
@@ -17,6 +17,7 @@ needless_borrow = "warn"
 wrong_self_convention = "warn"
 
 [workspace.dependencies]
+rand = { version = "0.8.5", features = ["small_rng"] }
 
 [profile.dev]
 opt-level = 0
