@@ -10,7 +10,7 @@ use crate::{
 
 use clap::Parser;
 
-use shared::scenes::{
+use scenes::{
     SceneGenerator, checkered_spheres, cornell_box, debugging_scene, perlin_spheres, plane, simple,
     simple_light, simple_transform,
 };

@@ -8,3 +8,4 @@ clap = { version = "4.5.32", features = ["derive"] }
 serde = { version = "1.0.152", features = ["derive"] }
 toml = "0.7.2"
 shared = {path = "../shared"}
+scenes = {path = "../scenes"}

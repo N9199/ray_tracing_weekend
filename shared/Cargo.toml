@@ -16,7 +16,7 @@ crossbeam = "0.8.2"
 itertools = "0.10.5"
 kdam = {version = "0.4.1", features = ["rayon"]}
 libm = "0.2.15"
-rand = { version = "0.8.5", features = ["small_rng"] }
+rand = { workspace = true }
 rayon = "1.10.0"
 geometry = {path = "../geometry"}
 
