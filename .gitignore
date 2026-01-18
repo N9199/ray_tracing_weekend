@@ -16,3 +16,6 @@ flamegraph.svg
 
 # MacOS
 .DS_Store
+
+# Jujutsu
+.jj
