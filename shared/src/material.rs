@@ -2,7 +2,7 @@
 use std::sync::atomic::AtomicU32;
 use std::{f64::consts::PI, fmt::Debug, sync::Arc};
 
-use rand::{Rng, distributions::Open01};
+use rand::{distributions::Open01, Rng};
 
 use geometry::vec3::Point3;
 #[cfg(feature = "euclid")]
@@ -399,7 +399,8 @@ impl Clone for Metal {
 }
 
 impl Metal {
-    pub fn new(albedo: Colour, fuzz: f64) -> Self {
+    #[must_use]
+    pub const fn new(albedo: Colour, fuzz: f64) -> Self {
         Self { albedo, fuzz }
     }
 }
@@ -441,7 +442,7 @@ impl Clone for Dialectric {
 }
 
 impl Dialectric {
-    pub fn new(index_of_refraction: f64) -> Self {
+    pub const fn new(index_of_refraction: f64) -> Self {
         Self {
             index_of_refraction,
         }

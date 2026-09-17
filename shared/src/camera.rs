@@ -4,10 +4,9 @@ use std::ops::{Add, Div, Mul, Sub};
 use std::sync::atomic::{self, AtomicU64, Ordering};
 
 use rand::{
-    Rng as _, SeedableRng as _,
     distributions::{Distribution, Uniform},
     rngs::SmallRng,
-    thread_rng,
+    thread_rng, Rng as _, SeedableRng as _,
 };
 use rayon::iter::{IntoParallelIterator as _, ParallelIterator as _};
 
@@ -15,7 +14,7 @@ use kdam::par_tqdm;
 
 use crate::{
     colour::{Colour, SampledColour},
-    hittable::Hittable,
+    hittable::{HitRecord, Hittable},
     material::ScatterReflect,
     pdf::{HittablePdf, MixturePdf, Pdf},
     ray::Ray,
@@ -485,9 +484,9 @@ impl Camera {
             return mult * colour_from_emission + res;
         };
 
-        let pdf_ptr = match srec.scatter_reflect {
+        let (scattered_ray, pdf_value) = match srec.scatter_reflect {
             ScatterReflect::Reflect(ray) => {
-                return Self::ray_colour_tail_call(
+                become Self::ray_colour_tail_call(
                     ray,
                     background,
                     world,
@@ -498,18 +497,12 @@ impl Camera {
                     depth - 1,
                 );
             }
-            ScatterReflect::Scatter(pdf) => pdf,
+            ScatterReflect::Scatter(pdf) => Self::scatter_helper(lights, &rec, pdf, rng),
         };
-
-        let light_pdf = HittablePdf::new(lights, rec.get_p());
-        let p = MixturePdf::new(&light_pdf, pdf_ptr.as_ref());
-
-        let scattered_ray = Ray::new(rec.get_p(), p.generate(rng));
-        let pdf_value = p.value(&scattered_ray.get_direction());
 
         let scattering_pdf = rec.get_material().scattering_pdf(&r, &rec, &scattered_ray);
 
-        Self::ray_colour_tail_call(
+        become Self::ray_colour_tail_call(
             scattered_ray,
             background,
             world,
@@ -519,5 +512,19 @@ impl Camera {
             res + mult * colour_from_emission,
             depth - 1,
         )
+    }
+
+    #[inline(never)]
+    fn scatter_helper(
+        lights: &dyn Hittable,
+        rec: &HitRecord,
+        pdf_ptr: Box<dyn Pdf>,
+        rng: &mut dyn rand::RngCore,
+    ) -> (Ray, f64) {
+        let light_pdf = HittablePdf::new(lights, rec.get_p());
+        let p = MixturePdf::new(&light_pdf, pdf_ptr.as_ref());
+        let scattered_ray = Ray::new(rec.get_p(), p.generate(rng));
+        let pdf_value = p.value(&scattered_ray.get_direction());
+        (scattered_ray, pdf_value)
     }
 }

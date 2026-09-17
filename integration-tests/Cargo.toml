@@ -4,6 +4,16 @@ version = "0.1.0"
 edition = "2024"
 
 [dependencies]
+
+[dev-dependencies]
 geometry = {path = "../geometry"}
-scenes = {path = "../scenes"}
 shared = {path = "../shared"}
+scenes = {path = "../scenes"}
+
+[features]
+hit_counters=["shared/hit_counters"]
+euclid=["geometry/euclid", "shared/euclid", "scenes/euclid"]
+debug = ["shared/debug", "geometry/debug", "scenes/debug"]
+
+[lints]
+workspace = true

@@ -1,10 +1,10 @@
 use std::sync::Arc;
 
-use rand::{Rng as _, SeedableRng, distributions::Standard, rngs::SmallRng, thread_rng};
+use rand::{distributions::Standard, rngs::SmallRng, thread_rng, Rng as _, SeedableRng};
 
 use geometry::{
     aaplane::Axis,
-    transformations::{Transformable as _, rotation},
+    transformations::{rotation, Transformable as _},
     vec3::{Point3, Translation3, Vec3},
 };
 
@@ -14,7 +14,7 @@ use shared::{
     entities::{Cuboid, Plane, Quad, Sphere},
     hittable::BoundedHittable,
     hittable_collections::{bvh::BoundedVolumeHierarchy, hittable_list::HittableList},
-    material::{Dialectric, DiffuseLight, INVISIBLE_PTR, Lambertian, Material, Metal},
+    material::{Dialectric, DiffuseLight, Lambertian, Material, Metal, INVISIBLE_PTR},
     texture::{CheckerTexture, NoiseTexture},
     utils::random_utils,
 };
@@ -106,7 +106,8 @@ pub fn plane() -> (
         checker,
     ));
 
-    let lights = HittableList::default();
+    let mut lights = HittableList::default();
+    lights.add(Sphere::new(Point3::new(0., 0., 0.), 0.1, INVISIBLE_PTR));
 
     let lookfrom = Point3::new(0.0, 30.0, 0.0);
     let lookat = Point3::new(0.0, 0.0, 0.0);
