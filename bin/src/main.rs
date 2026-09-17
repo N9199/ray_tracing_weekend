@@ -1,5 +1,5 @@
 use std::{
-    fs::{File, read_to_string},
+    fs::{read_to_string, File},
     io::{BufWriter, Write as _},
 };
 
@@ -11,8 +11,8 @@ use crate::{
 use clap::Parser;
 
 use scenes::{
-    SceneGenerator, checkered_spheres, cornell_box, debugging_scene, perlin_spheres, plane, simple,
-    simple_light, simple_transform,
+    checkered_spheres, cornell_box, debugging_scene, perlin_spheres, plane, simple, simple_light,
+    simple_transform, SceneGenerator,
 };
 
 mod config;
@@ -58,8 +58,8 @@ fn main() {
     let mut config = toml::from_str::<Config>(&config).unwrap();
     let Image {
         aspect_ratio,
-        image_width,
-        image_height,
+        width: image_width,
+        height: image_height,
         samples_per_pixel,
         max_depth,
     } = config.get_image().unwrap();

@@ -14,7 +14,7 @@ use shared::{
     entities::{Cuboid, Plane, Quad, Sphere},
     hittable::BoundedHittable,
     hittable_collections::{bvh::BoundedVolumeHierarchy, hittable_list::HittableList},
-    material::{Dialectric, DiffuseLight, Lambertian, Material, Metal, INVISIBLE_PTR},
+    material::{Dielectric, DiffuseLight, Lambertian, Material, Metal, INVISIBLE_PTR},
     texture::{CheckerTexture, NoiseTexture},
     utils::random_utils,
 };
@@ -37,6 +37,7 @@ where
     }
 }
 
+#[must_use]
 pub fn perlin_spheres() -> (
     Box<dyn BoundedHittable>,
     Box<dyn BoundedHittable>,
@@ -88,6 +89,7 @@ pub fn perlin_spheres() -> (
     (Box::new(world), Box::new(lights), cam)
 }
 
+#[must_use]
 pub fn plane() -> (
     Box<dyn BoundedHittable>,
     Box<dyn BoundedHittable>,
@@ -121,6 +123,7 @@ pub fn plane() -> (
     (Box::new(world), Box::new(lights), cam)
 }
 
+#[must_use]
 pub fn checkered_spheres() -> (
     Box<dyn BoundedHittable>,
     Box<dyn BoundedHittable>,
@@ -153,6 +156,7 @@ pub fn checkered_spheres() -> (
     (Box::new(world), Box::new(lights), cam)
 }
 
+#[must_use]
 pub fn simple() -> (
     Box<dyn BoundedHittable>,
     Box<dyn BoundedHittable>,
@@ -169,7 +173,7 @@ pub fn simple() -> (
         ground_material,
     ));
 
-    let material1 = Arc::new(Dialectric::new(1.5));
+    let material1 = Arc::new(Dielectric::new(1.5));
     let mut rng = SmallRng::from_rng(thread_rng()).unwrap();
     const N: isize = 11;
     for a in (-N)..N {
@@ -233,6 +237,7 @@ pub fn simple() -> (
     )
 }
 
+#[must_use]
 pub fn simple_light() -> (
     Box<dyn BoundedHittable>,
     Box<dyn BoundedHittable>,
@@ -290,6 +295,7 @@ pub fn simple_light() -> (
     (Box::new(world), Box::new(lights), cam)
 }
 
+#[must_use]
 pub fn cornell_box() -> (
     Box<dyn BoundedHittable>,
     Box<dyn BoundedHittable>,
@@ -302,7 +308,7 @@ pub fn cornell_box() -> (
     let light = Arc::new(DiffuseLight::new_with_colour(Colour::new(15., 15., 15.)));
 
     let _aluminium = Arc::new(Metal::new(Colour::new(0.8, 0.85, 0.88), 0.0));
-    let glass = Arc::new(Dialectric::new(1.5));
+    let glass = Arc::new(Dielectric::new(1.5));
 
     world.add(Quad::new(
         Point3::new(555., 0., 0.),
@@ -395,6 +401,7 @@ pub fn cornell_box() -> (
     (Box::new(world), Box::new(lights), cam)
 }
 
+#[must_use]
 pub fn debugging_scene() -> (
     Box<dyn BoundedHittable>,
     Box<dyn BoundedHittable>,
@@ -530,6 +537,7 @@ pub fn debugging_scene() -> (
     )
 }
 
+#[must_use]
 pub fn simple_transform() -> (
     Box<dyn BoundedHittable>,
     Box<dyn BoundedHittable>,

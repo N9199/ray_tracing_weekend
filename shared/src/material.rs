@@ -424,19 +424,19 @@ impl Material for Metal {
     }
 }
 
-pub struct Dialectric {
+pub struct Dielectric {
     index_of_refraction: f64,
 }
 
-impl Debug for Dialectric {
+impl Debug for Dielectric {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        f.debug_struct("Dialectric")
+        f.debug_struct("Dielectric")
             .field("index_of_refraction", &self.index_of_refraction)
             .finish()
     }
 }
 
-impl Clone for Dialectric {
+impl Clone for Dielectric {
     fn clone(&self) -> Self {
         Self {
             index_of_refraction: self.index_of_refraction,
@@ -444,7 +444,8 @@ impl Clone for Dialectric {
     }
 }
 
-impl Dialectric {
+impl Dielectric {
+    #[must_use]
     pub const fn new(index_of_refraction: f64) -> Self {
         Self {
             index_of_refraction,
@@ -458,7 +459,7 @@ impl Dialectric {
     }
 }
 
-impl Material for Dialectric {
+impl Material for Dielectric {
     fn scatter(
         &self,
         ray_in: &Ray,

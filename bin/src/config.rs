@@ -20,20 +20,18 @@ enum ConfigImage {
 
 impl ConfigImage {
     pub fn get(&mut self) -> Option<Image> {
-        use ConfigImage::*;
         match *self {
-            Image(v) => Some(v),
-            PreImage(v) => match v.fix() {
-                Some(v) => {
-                    *self = Image(v);
+            Self::Image(v) => Some(v),
+            Self::PreImage(v) => {
+                if let Some(v) = v.fix() {
+                    *self = Self::Image(v);
                     Some(v)
-                }
-                None => {
-                    *self = NoImage;
+                } else {
+                    *self = Self::NoImage;
                     None
                 }
-            },
-            NoImage => None,
+            }
+            Self::NoImage => None,
         }
     }
 }
@@ -89,8 +87,8 @@ impl PreImage {
             };
         Some(Image {
             aspect_ratio,
-            image_width,
-            image_height,
+            width: image_width,
+            height: image_height,
             samples_per_pixel,
             max_depth,
         })
@@ -100,8 +98,8 @@ impl PreImage {
 #[derive(Debug, Clone, Copy)]
 pub struct Image {
     pub aspect_ratio: f64,
-    pub image_width: u32,
-    pub image_height: u32,
+    pub width: u32,
+    pub height: u32,
     pub samples_per_pixel: u16,
     pub max_depth: u8,
 }
