@@ -1,4 +1,3 @@
-use core::f64;
 use std::ops::{Add, Div, Mul, Sub};
 #[cfg(feature = "hit_counters")]
 use std::sync::atomic::{self, AtomicU64, Ordering};
@@ -41,6 +40,7 @@ pub struct CameraBuilder {
 }
 
 impl CameraBuilder {
+    #[must_use]
     pub const fn new() -> Self {
         Self {
             aspect_ratio: None,
@@ -58,58 +58,83 @@ impl CameraBuilder {
         }
     }
 
+    #[must_use]
     pub const fn with_aspect_ratio(self, aspect_ratio: f64) -> Self {
         Self {
             aspect_ratio: Some(aspect_ratio),
             ..self
         }
     }
+
+    #[must_use]
     pub const fn with_image_width(self, image_width: u32) -> Self {
         Self {
             image_width: Some(image_width),
             ..self
         }
     }
+
+    #[must_use]
     pub const fn with_image_height(self, image_height: u32) -> Self {
         Self {
             image_height: Some(image_height),
             ..self
         }
     }
+
+    #[must_use]
     pub const fn with_samples_per_pixel(self, samples_per_pixel: u16) -> Self {
         Self {
             samples_per_pixel,
             ..self
         }
     }
+
+    #[must_use]
     pub const fn with_max_depth(self, max_depth: u32) -> Self {
         Self { max_depth, ..self }
     }
+
+    #[must_use]
     pub const fn with_background(self, background: Colour) -> Self {
         Self { background, ..self }
     }
+
+    #[must_use]
     pub const fn with_vfov(self, vfov: f64) -> Self {
         Self { vfov, ..self }
     }
+
+    #[must_use]
     pub const fn with_lookfrom(self, lookfrom: Point3) -> Self {
         Self { lookfrom, ..self }
     }
+
+    #[must_use]
     pub const fn with_lookat(self, lookat: Point3) -> Self {
         Self { lookat, ..self }
     }
+
+    #[must_use]
     pub const fn with_vup(self, vup: Vec3) -> Self {
         Self { vup, ..self }
     }
+
+    #[must_use]
     pub const fn with_defocus_angle(self, defocus_angle: f64) -> Self {
         Self {
             defocus_angle,
             ..self
         }
     }
+
+    #[must_use]
     pub const fn with_focus_dist(self, focus_dist: f64) -> Self {
         Self { focus_dist, ..self }
     }
 
+    #[must_use]
+    #[allow(clippy::cast_sign_loss, clippy::cast_possible_truncation)]
     pub fn build(self) -> Camera {
         let CameraBuilder {
             aspect_ratio,
@@ -135,26 +160,26 @@ impl CameraBuilder {
                     (aspect_ratio, (100. / aspect_ratio).round() as _, 100)
                 }
                 (None, Some(image_height), Some(image_width)) => (
-                    image_width as f64 / image_height as f64,
+                    f64::from(image_width) / f64::from(image_height),
                     image_height,
                     image_width,
                 ),
                 (Some(aspect_ratio), None, Some(image_width)) => (
                     aspect_ratio,
-                    (image_width as f64 / aspect_ratio).round() as _,
+                    (f64::from(image_width) / aspect_ratio).round() as _,
                     image_width,
                 ),
                 (Some(aspect_ratio), Some(image_height), None) => (
                     aspect_ratio,
                     image_height,
-                    (image_height as f64 * aspect_ratio).round() as _,
+                    (f64::from(image_height) * aspect_ratio).round() as _,
                 ),
                 (Some(aspect_ratio), Some(image_height), Some(image_width)) => {
                     (aspect_ratio, image_height, image_width)
                 }
             };
 
-        let pixel_samples_scale = 1. / samples_per_pixel as f64;
+        let pixel_samples_scale = 1. / f64::from(samples_per_pixel);
         let center = lookfrom;
 
         let theta = vfov.to_radians();
@@ -179,8 +204,8 @@ impl CameraBuilder {
         let viewport_v = v * viewport_height;
         // dbg!(viewport_u, viewport_v);
 
-        let pixel_delta_u = viewport_u / (image_width as f64);
-        let pixel_delta_v = viewport_v / (image_height as f64);
+        let pixel_delta_u = viewport_u / f64::from(image_width);
+        let pixel_delta_v = viewport_v / f64::from(image_height);
 
         let viewport_upper_left_corner =
             center - (w * focus_dist) - viewport_u / 2. - viewport_v / 2.;
@@ -259,6 +284,7 @@ pub struct Camera {
     defocus_disk_v: Vec3,
 }
 
+#[derive(Debug, Clone, Copy)]
 pub(crate) enum DebugModes {
     Off,
     Normal,
@@ -300,13 +326,14 @@ impl Camera {
         world: &dyn Hittable,
         lights: &dyn Hittable,
     ) -> Vec<Vec<SampledColour>> {
-        #[cfg(debug_assertions)]
-        dbg!(self);
-
         #[cfg(not(miri))]
         const DEBUG_MODE: DebugModes = DebugModes::Normal;
         #[cfg(miri)]
         const DEBUG_MODE: DebugModes = DebugModes::Miri;
+
+        #[cfg(debug_assertions)]
+        dbg!(self);
+
         self.render_internal(world, lights, DEBUG_MODE)
     }
 
@@ -380,7 +407,7 @@ impl Camera {
         out.into_iter()
             .map(|vec| {
                 vec.into_iter()
-                    .map(|colour| SampledColour::from((colour, self.samples_per_pixel as _)))
+                    .map(|colour| SampledColour::from((colour, self.samples_per_pixel.into())))
                     .collect()
             })
             .collect()

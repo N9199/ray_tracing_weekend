@@ -1,6 +1,6 @@
 use std::{f64::consts::PI, fmt::Debug};
 
-use rand::{Rng, distributions::Standard};
+use rand::{distributions::Standard, Rng};
 
 use geometry::{
     onb::Onb,
@@ -36,6 +36,7 @@ pub struct CosinePdf {
 }
 
 impl CosinePdf {
+    #[must_use]
     pub fn new(w: Vec3) -> Self {
         Self { uvw: Onb::new(w) }
     }
@@ -64,7 +65,7 @@ impl<'a> HittablePdf<'a> {
     }
 }
 
-impl<'a> Pdf for HittablePdf<'a> {
+impl Pdf for HittablePdf<'_> {
     fn value(&self, direction: &Vec3) -> f64 {
         self.objects.pdf_value(self.origin, *direction)
     }
@@ -86,7 +87,7 @@ impl<'a, 'b> MixturePdf<'a, 'b> {
     }
 }
 
-impl<'a, 'b> Pdf for MixturePdf<'a, 'b> {
+impl Pdf for MixturePdf<'_, '_> {
     fn value(&self, direction: &Vec3) -> f64 {
         self.pdf1.value(direction) * 0.5 + self.pdf2.value(direction) * 0.5
     }

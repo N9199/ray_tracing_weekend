@@ -65,7 +65,7 @@ mod dyn_util {
         const MAX_SIZE: usize = 16;
         type MaterialBytes = [MaybeUninit<u8>; MAX_SIZE];
 
-        struct IntoMaterial {
+        struct VTable {
             into_material: fn(*const MaterialBytes) -> *const dyn Material,
             into_debug: fn(*const MaterialBytes) -> *const dyn Debug,
             drop_shim: fn(MaterialBytes),
@@ -73,50 +73,31 @@ mod dyn_util {
         }
 
         trait MaterialTransform: Sized {
-            const FUNCTIONS: &IntoMaterial;
+            const FUNCTIONS: &VTable;
         }
 
         impl<T> MaterialTransform for T
         where
             T: Deref<Target = dyn Material> + Debug + Clone,
         {
-            const FUNCTIONS: &IntoMaterial = &IntoMaterial {
+            const FUNCTIONS: &VTable = &VTable {
                 into_material: |bytes| {
-                    unsafe {
-                        std::mem::transmute::<*const [std::mem::MaybeUninit<u8>; 16], *const T>(
-                            bytes,
-                        )
-                        .as_ref()
-                    }
-                    .unwrap()
-                    .deref() as _
+                    std::ptr::from_ref(unsafe { bytes.cast::<T>().as_ref() }.unwrap().deref())
                 },
                 into_debug: |bytes| unsafe {
                     #[cfg(debug_assertions)]
                     dbg!(std::any::type_name::<T>());
-                    std::mem::transmute::<*const [std::mem::MaybeUninit<u8>; 16], *const T>(bytes)
-                        .as_ref()
-                        .unwrap()
-                        .deref() as *const T::Target as *const dyn Debug
+                    std::ptr::from_ref::<T::Target>(bytes.cast::<T>().as_ref().unwrap().deref())
+                        as *const dyn Debug
                 },
                 drop_shim: |mut bytes| unsafe {
                     if std::mem::needs_drop::<T>() {
-                        let value = std::mem::transmute::<
-                            *mut [std::mem::MaybeUninit<u8>; 16],
-                            *mut T,
-                        >(&mut bytes as *mut _);
+                        let value = (&raw mut bytes).cast::<T>();
                         drop_in_place(value);
                     }
                 },
                 clone: |bytes| {
-                    let new_value = unsafe {
-                        std::mem::transmute::<*const [std::mem::MaybeUninit<u8>; 16], *const T>(
-                            bytes,
-                        )
-                        .as_ref()
-                    }
-                    .unwrap()
-                    .to_owned();
+                    let new_value = unsafe { bytes.cast::<T>().as_ref() }.unwrap().to_owned();
                     DynMaterial::try_new(new_value).unwrap().bytes
                 },
             };
@@ -124,7 +105,7 @@ mod dyn_util {
 
         pub struct DynMaterial {
             bytes: MaterialBytes,
-            into_material: &'static IntoMaterial,
+            into_material: &'static VTable,
         }
 
         impl DynMaterial {
@@ -136,9 +117,7 @@ mod dyn_util {
                 (size_of_val(&material_ptr) <= MAX_SIZE).then(|| {
                     let mut bytes = [MaybeUninit::zeroed(); MAX_SIZE];
                     let size = size_of::<T>();
-                    let material_ptr_ptr = unsafe {
-                        std::mem::transmute::<*const T, *const u8>(&material_ptr as *const _)
-                    };
+                    let material_ptr_ptr = unsafe { (&raw const material_ptr).cast::<u8>() };
                     let material_ptr_as_slice =
                         unsafe { std::slice::from_raw_parts(material_ptr_ptr, size) };
                     bytes.iter_mut().zip(material_ptr_as_slice).for_each(
@@ -179,7 +158,7 @@ mod dyn_util {
 
         impl Clone for DynMaterial {
             fn clone(&self) -> Self {
-                let bytes = (self.into_material.clone)(&self.bytes as _);
+                let bytes = (self.into_material.clone)(std::ptr::from_ref(&self.bytes));
                 Self {
                     bytes,
                     into_material: self.into_material,
@@ -190,7 +169,7 @@ mod dyn_util {
         impl Debug for DynMaterial {
             fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
                 let dyn_debug = unsafe {
-                    (self.into_material.into_debug)(&self.bytes as _)
+                    (self.into_material.into_debug)(std::ptr::from_ref(&self.bytes))
                         .as_ref()
                         .unwrap()
                 };
@@ -209,7 +188,7 @@ mod dyn_util {
                 rng: &mut dyn rand::RngCore,
             ) -> Option<ScatterRecord> {
                 unsafe {
-                    (self.into_material.into_material)(&self.bytes as _)
+                    (self.into_material.into_material)(std::ptr::from_ref(&self.bytes))
                         .as_ref()
                         .unwrap()
                 }
@@ -219,7 +198,7 @@ mod dyn_util {
             #[inline]
             fn emitted(&self, u: f64, v: f64, point: Point3) -> Colour {
                 unsafe {
-                    (self.into_material.into_material)(&self.bytes as _)
+                    (self.into_material.into_material)(std::ptr::from_ref(&self.bytes))
                         .as_ref()
                         .unwrap()
                 }
@@ -229,7 +208,7 @@ mod dyn_util {
             #[inline]
             fn scattering_pdf(&self, ray_in: &Ray, rec: &HitRecord<'_>, scattered: &Ray) -> f64 {
                 unsafe {
-                    (self.into_material.into_material)(&self.bytes as _)
+                    (self.into_material.into_material)(std::ptr::from_ref(&self.bytes))
                         .as_ref()
                         .unwrap()
                 }
@@ -251,6 +230,15 @@ mod dyn_util {
         pub enum DynMaterial {
             Ref(&'static dyn Material),
             Arc(Arc<dyn Material>),
+        }
+
+        impl DynMaterial {
+            #[must_use]
+            pub const fn as_bytes(&self) -> &[u8] {
+                const SIZE: usize = std::mem::size_of::<DynMaterial>();
+                let ptr = std::ptr::from_ref::<DynMaterial>(self).cast();
+                unsafe { std::slice::from_raw_parts(ptr, SIZE) }
+            }
         }
 
         impl TryFrom<Arc<dyn Material>> for DynMaterial {
@@ -307,6 +295,19 @@ mod dyn_util {
 
         impl AsRef<dyn Material> for DynMaterial {
             fn as_ref<'a>(&'a self) -> &'a (dyn Material + 'static) {
+                #[cfg(feature = "debug")]
+                {
+                    dbg!(std::any::type_name::<Self>());
+                    dbg!(std::alloc::Layout::new::<Self>());
+                    dbg!(self as *const _);
+                    dbg!(self.as_bytes());
+                    dbg!(std::mem::discriminant(self));
+                    dbg!(&self);
+                    // if let DynMaterial::Arc(mat) = &self {
+                    //     dbg!(Arc::strong_count(&mat));
+                    //     dbg!(Arc::weak_count(&mat));
+                    // }
+                }
                 match self {
                     DynMaterial::Ref(material) => *material,
                     DynMaterial::Arc(material) => material.as_ref(),
@@ -345,10 +346,12 @@ impl Clone for Lambertian {
 }
 
 impl Lambertian {
+    #[must_use]
     pub fn new(texture: Arc<dyn Texture>) -> Self {
         Self { texture }
     }
 
+    #[must_use]
     pub fn new_with_colour(colour: Colour) -> Self {
         Self::new(Arc::new(SolidColour(colour)))
     }
@@ -497,10 +500,12 @@ pub struct DiffuseLight {
 pub(crate) static LIGHT_HIT_COUNTER: AtomicU32 = AtomicU32::new(0);
 
 impl DiffuseLight {
+    #[must_use]
     pub fn new(texture: Arc<dyn Texture>) -> Self {
         Self { texture }
     }
 
+    #[must_use]
     pub fn new_with_colour(colour: Colour) -> Self {
         Self::new(Arc::new(SolidColour(colour)))
     }
@@ -521,10 +526,12 @@ pub struct Isotropic {
 
 // static ISOTROPIC_PDF: LazyLock<Arc<SpherePdf>> = LazyLock::new(|| Arc::new(SpherePdf));
 impl Isotropic {
+    #[must_use]
     pub fn new(texture: Arc<dyn Texture>) -> Self {
         Self { texture }
     }
 
+    #[must_use]
     pub fn new_with_colour(colour: Colour) -> Self {
         Self::new(Arc::new(SolidColour(colour)))
     }

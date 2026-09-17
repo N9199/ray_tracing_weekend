@@ -7,6 +7,7 @@ use geometry::prelude::*;
 pub struct Colour(Vec3);
 
 impl Colour {
+    #[must_use]
     pub const fn new(r: f64, g: f64, b: f64) -> Self {
         Colour(Vec3::new(r, g, b))
     }
@@ -21,12 +22,13 @@ impl Colour {
         let g = colour.0.y;
         let b = colour.0.z;
 
-        let scale = (samples_per_pixel as f64).recip();
+        let scale = f64::from(samples_per_pixel).recip();
 
         let r = (r * scale).sqrt();
         let g = (g * scale).sqrt();
         let b = (b * scale).sqrt();
 
+        #[allow(clippy::cast_sign_loss, clippy::cast_possible_truncation)]
         f.write_fmt(format_args!(
             "{} {} {}",
             (256. * r.clamp(0., 1.)) as u8,
@@ -35,20 +37,24 @@ impl Colour {
         ))
     }
 
+    #[must_use]
     pub const fn into_inner(self) -> Vec3 {
         self.0
     }
 
+    #[must_use]
     pub const fn from_vec3(vec: Vec3) -> Self {
         Self(vec)
     }
 
+    #[must_use]
     pub fn from_array(inner: [f64; 3]) -> Self {
         Self(Vec3::from(inner))
     }
 
     // TODO: When const closure are stable and when Fn traits are "constified" make this const
     // See https://github.com/rust-lang/rust/issues/106003 and https://github.com/rust-lang/rust/issues/143874
+    #[must_use]
     pub fn fix_nan(self) -> Self {
         Colour::from_array(
             self.into_inner()

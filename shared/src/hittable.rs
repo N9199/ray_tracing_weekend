@@ -129,36 +129,43 @@ impl<'a> HitRecord<'a> {
     }
 
     #[inline]
+    #[must_use]
     pub const fn get_u(&self) -> f64 {
         self.u
     }
 
     #[inline]
+    #[must_use]
     pub const fn get_v(&self) -> f64 {
         self.v
     }
 
     #[inline]
+    #[must_use]
     pub const fn get_p(&self) -> Point3 {
         self.p
     }
 
     #[inline]
+    #[must_use]
     pub const fn get_normal(&self) -> Vec3 {
         self.normal
     }
 
     #[inline]
+    #[must_use]
     pub const fn get_t(&self) -> f64 {
         self.t
     }
 
     #[inline]
+    #[must_use]
     pub const fn is_front_face(&self) -> bool {
         self.front_face
     }
 
     #[inline]
+    #[must_use]
     pub const fn get_material(&self) -> &dyn Material {
         self.mat_ptr
     }

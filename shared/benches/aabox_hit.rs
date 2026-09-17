@@ -1,5 +1,5 @@
-use criterion::{Criterion, criterion_group, criterion_main};
-use rand::{Rng, SeedableRng, rngs::SmallRng};
+use criterion::{criterion_group, criterion_main, Criterion};
+use rand::{rngs::SmallRng, Rng, SeedableRng};
 
 use geometry::{
     aabox::AABBox,
@@ -23,7 +23,7 @@ fn aabox_hits(c: &mut Criterion) {
             },
             |r| aabox.is_hit(&r, (0.)..=f64::MAX),
             criterion::BatchSize::SmallInput,
-        )
+        );
     });
     // group.bench_function("aabox hit test2", |b| {
     //     b.iter_batched(

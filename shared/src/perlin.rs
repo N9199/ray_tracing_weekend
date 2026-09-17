@@ -43,6 +43,7 @@ impl Perlin {
         });
     }
 
+    #[must_use]
     pub fn new() -> Self {
         let mut rng = thread_rng();
         let mut rand_vec = Box::new([Vec3::default(); Self::POINT_COUNT]);
@@ -56,6 +57,9 @@ impl Perlin {
             perm_z: Self::perlin_generate_perm(),
         }
     }
+
+    #[allow(clippy::many_single_char_names)]
+    #[must_use]
     pub fn noise(&self, p: &Point3) -> f64 {
         let u = p.x - p.x.floor();
         let v = p.y - p.y.floor();
@@ -81,6 +85,7 @@ impl Perlin {
         Self::perlin_interpolation(c, u, v, w)
     }
 
+    #[must_use]
     pub fn turb(&self, p: Point3, depth: usize) -> f64 {
         let mut accum = 0.;
         let mut temp_p = p;
@@ -93,6 +98,7 @@ impl Perlin {
         accum
     }
 
+    #[must_use]
     pub fn perlin_interpolation(c: [[[Vec3; 2]; 2]; 2], u: f64, v: f64, w: f64) -> f64 {
         iproduct!((0..2), (0..2), (0..2))
             .map(|(i, j, k)| {
@@ -107,6 +113,8 @@ impl Perlin {
             .sum()
     }
 
+    #[allow(clippy::many_single_char_names)]
+    #[must_use]
     pub fn trilinear_interpolation(c: [[[f64; 2]; 2]; 2], u: f64, v: f64, w: f64) -> f64 {
         iproduct!((0..2), (0..2), (0..2))
             .map(|(i, j, k)| {

@@ -29,6 +29,7 @@ pub struct CheckerTexture {
 }
 
 impl CheckerTexture {
+    #[must_use]
     pub fn new(even: Arc<dyn Texture>, odd: Arc<dyn Texture>, scale: f64) -> Self {
         Self {
             inv_scale: scale.recip(),
@@ -37,6 +38,7 @@ impl CheckerTexture {
         }
     }
 
+    #[must_use]
     pub fn new_with_colours(even: Colour, odd: Colour, scale: f64) -> Self {
         let even = Arc::new(SolidColour(even));
         let odd = Arc::new(SolidColour(odd));
@@ -72,13 +74,14 @@ impl Debug for NoiseTexture {
 impl Default for NoiseTexture {
     fn default() -> Self {
         Self {
-            noise: Default::default(),
+            noise: Perlin::default(),
             scale: 1.0,
         }
     }
 }
 
 impl NoiseTexture {
+    #[must_use]
     pub fn new(scale: f64) -> Self {
         Self {
             noise: Perlin::new(),
