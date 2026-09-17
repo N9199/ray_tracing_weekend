@@ -11,7 +11,7 @@ mod hash_map_based {
     use geometry::aabox::Box3DExt as _;
     use geometry::{
         aabox::AABBox,
-        aaplane::{AAPlane, Axis, get_axis},
+        aaplane::{get_axis, AAPlane, Axis},
         bounded::Bounded,
         vec3::{Point3, Vec3},
     };
@@ -140,7 +140,7 @@ mod hash_map_based {
                         bbox_axis_size,
                         axis,
                         *temp_vec[temp_vec.len() / 2].start(),
-                    )
+                    );
                 }
             }
             let plane = AAPlane {
@@ -155,15 +155,21 @@ mod hash_map_based {
         }
 
         pub fn iter_bounded(&self) -> impl Iterator<Item = &'_ dyn Bounded> + '_ {
-            self.values.values().flat_map(|v| v.iter_bounded())
+            self.values
+                .values()
+                .flat_map(super::raw::RawHittableVec::iter_bounded)
         }
 
         pub fn iter_hittable(&self) -> impl Iterator<Item = &'_ dyn Hittable> + '_ {
-            self.values.values().flat_map(|v| v.iter_hittable())
+            self.values
+                .values()
+                .flat_map(super::raw::RawHittableVec::iter_hittable)
         }
 
         pub fn iter_debug(&self) -> impl Iterator<Item = &'_ dyn Debug> + '_ {
-            self.values.values().flat_map(|v| v.iter_debug())
+            self.values
+                .values()
+                .flat_map(super::raw::RawHittableVec::iter_debug)
         }
     }
 
@@ -173,8 +179,8 @@ mod hash_map_based {
             let &start = range.start();
             let &end = range.end();
             self.values
-                .iter()
-                .filter_map(|(_, obj)| {
+                .values()
+                .filter_map(|obj| {
                     // obj.hit(r, start..=end)
                     obj.bounded_hit(r, start..=end)
                 })
@@ -227,7 +233,7 @@ mod vector_based {
     use geometry::aabox::Box3DExt as _;
     use geometry::{
         aabox::AABBox,
-        aaplane::{AAPlane, Axis, get_axis},
+        aaplane::{get_axis, AAPlane, Axis},
         bounded::Bounded,
         vec3::{Point3, Vec3},
     };
@@ -258,6 +264,7 @@ mod vector_based {
             self.aabbox = None;
         }
 
+        #[must_use]
         pub const fn len(&self) -> usize {
             self.len
         }
@@ -293,6 +300,7 @@ mod vector_based {
             self.len += 1;
         }
 
+        #[must_use]
         pub fn split_by(self, plane: AAPlane) -> (Self, Self) {
             let (mut left, mut right) = (Self::default(), Self::default());
             self.values.into_iter().for_each(|(id, obj)| {
@@ -315,6 +323,7 @@ mod vector_based {
             (right, left)
         }
 
+        #[must_use]
         pub fn best_split(self) -> (Self, Self, AAPlane) {
             if self.is_empty() {
                 return (
@@ -364,7 +373,7 @@ mod vector_based {
                         bbox_axis_size,
                         axis,
                         *temp_vec[temp_vec.len() / 2].start(),
-                    )
+                    );
                 }
             }
             let plane = AAPlane {

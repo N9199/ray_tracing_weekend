@@ -25,6 +25,9 @@ pub struct Plane {
 }
 
 impl Plane {
+    /// # Panics
+    /// If `T` fails to be converted into `DynMaterial` this function will panic
+    #[must_use]
     pub fn new<T>(point: Point3, normal: Vec3, mat_ptr: T) -> Self
     where
         T: TryInto<DynMaterial>,
@@ -37,6 +40,7 @@ impl Plane {
         }
     }
 
+    #[must_use]
     #[inline(never)]
     pub fn get_plane_uv(&self, point: Point3) -> (f64, f64) {
         const V: Vec3 = Vec3::new(0., 1., 0.);
@@ -64,9 +68,10 @@ impl Hittable for Plane {
         let t = -(r.get_origin() - self.point).dot(self.normal).div(denom);
         let point = r.at(t);
         let (u, v) = self.get_plane_uv(point);
-        if !(u.is_finite() && v.is_finite()) {
-            panic!("u = {u}, v = {v}, point = {point:?}");
-        }
+        assert!(
+            u.is_finite() && v.is_finite(),
+            "u = {u}, v = {v}, point = {point:?}"
+        );
         (range.contains(&t)).then(|| {
             #[cfg(feature = "hit_counters")]
             PLANE_HIT_COUNTER.fetch_add(1, atomic::Ordering::Relaxed);

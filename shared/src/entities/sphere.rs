@@ -6,7 +6,7 @@ use std::{
     ops::{Div, Neg, RangeInclusive},
 };
 
-use rand::{Rng, distributions::Standard};
+use rand::{distributions::Standard, Rng};
 
 use geometry::{
     aabox::AABBox,
@@ -30,6 +30,9 @@ pub struct Sphere {
 }
 
 impl Sphere {
+    /// # Panics
+    /// If `T` fails to be converted into `DynMaterial` this function will panic
+    #[must_use]
     pub fn new<T>(center: Point3, radius: f64, mat_ptr: T) -> Self
     where
         T: TryInto<DynMaterial>,
@@ -46,6 +49,7 @@ impl Sphere {
         }
     }
 
+    #[must_use]
     pub fn get_sphere_uv(point: Point3) -> (f64, f64) {
         (
             libm::atan2(point.z.neg(), point.x).div(TAU),
@@ -58,6 +62,7 @@ impl Sphere {
 pub(crate) static SPHERE_HIT_COUNTER: AtomicU32 = AtomicU32::new(0);
 
 impl Hittable for Sphere {
+    #[allow(clippy::many_single_char_names)]
     fn hit(&self, r: &Ray, range: RangeInclusive<f64>) -> Option<HitRecord<'_>> {
         // dbg!("Sphere");
         let oc = r.get_origin() - self.center;
@@ -71,11 +76,11 @@ impl Hittable for Sphere {
         let sqrt_discriminant = discriminant.sqrt();
         let t = {
             let root = (-half_b - sqrt_discriminant) / a;
-            if !(*range.start() <= root && root <= *range.end()) {
+            if *range.start() <= root && root <= *range.end() {
+                root
+            } else {
                 let root = (-half_b + sqrt_discriminant) / a;
                 (*range.start() <= root && root <= *range.end()).then_some(root)?
-            } else {
-                root
             }
         };
 

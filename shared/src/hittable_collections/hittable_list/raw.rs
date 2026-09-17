@@ -15,6 +15,7 @@ mod type_shit {
 
     use super::RawHittableVec;
 
+    #[derive(Debug)]
     pub struct Functions {
         pub(crate) slice_into_hittable: unsafe fn(*const Slice<u8>) -> *const dyn Hittable,
         pub(crate) slice_into_bounded: unsafe fn(*const Slice<u8>) -> *const dyn Bounded,
@@ -37,26 +38,12 @@ mod type_shit {
         T: Debug + BoundedHittable + Sync + Send + 'static,
     {
         const FUNCTIONS: Functions = Functions {
-            slice_into_hittable: |slice| unsafe {
-                std::mem::transmute::<*const Slice<u8>, *const Slice<T>>(slice)
-                    as *const dyn Hittable
-            },
-            slice_into_bounded: |slice| unsafe {
-                std::mem::transmute::<*const Slice<u8>, *const Slice<T>>(slice)
-                    as *const dyn Bounded
-            },
-            slice_into_debug: |slice| unsafe {
-                std::mem::transmute::<*const Slice<u8>, *const Slice<T>>(slice) as *const dyn Debug
-            },
-            into_hittable: |ptr| unsafe {
-                std::mem::transmute::<*const u8, *const T>(ptr) as *const dyn Hittable
-            },
-            into_bounded: |ptr| unsafe {
-                std::mem::transmute::<*const u8, *const T>(ptr) as *const dyn Bounded
-            },
-            into_debug: |ptr| unsafe {
-                std::mem::transmute::<*const u8, *const T>(ptr) as *const dyn Debug
-            },
+            slice_into_hittable: |slice| slice.cast::<Slice<T>>() as *const dyn Hittable,
+            slice_into_bounded: |slice| slice.cast::<Slice<T>>() as *const dyn Bounded,
+            slice_into_debug: |slice| slice.cast::<Slice<T>>() as *const dyn Debug,
+            into_hittable: |ptr| ptr.cast::<T>() as *const dyn Hittable,
+            into_bounded: |ptr| ptr.cast::<T>() as *const dyn Bounded,
+            into_debug: |ptr| ptr.cast::<T>() as *const dyn Debug,
             advance_by_n_shim: |ptr, steps| ptr.wrapping_add(std::mem::size_of::<T>() * steps),
             drop_shim: |ptr, len, cap| unsafe {
                 let temp_ptr = ptr;
@@ -88,15 +75,15 @@ mod type_shit {
                 while len != 0 {
                     len -= 1;
                     let val = unsafe { std::ptr::read(ptr.cast::<T>().cast_const().add(len)) };
-                    if !val.get_aabbox().right_of(plane) {
-                        // dbg!("left", val.get_aabbox());
-                        unsafe {
-                            left.add(val);
-                        }
-                    } else {
+                    if val.get_aabbox().right_of(plane) {
                         // dbg!("right", val.get_aabbox());
                         unsafe {
                             right.add(val);
+                        }
+                    } else {
+                        // dbg!("left", val.get_aabbox());
+                        unsafe {
+                            left.add(val);
                         }
                     }
                 }
@@ -189,6 +176,11 @@ impl RawHittableVec {
         self.ptr = vec.as_mut_ptr().cast();
         self.len = vec.len();
         self.cap = vec.capacity();
+        #[cfg(feature = "debug")]
+        {
+            dbg!(unsafe { self.ptr.cast::<T>().as_ref() });
+            dbg!(self.ptr);
+        }
         std::mem::forget(vec);
         let bbox = self
             .cached_aabox
@@ -210,12 +202,12 @@ impl RawHittableVec {
     #[expect(unused)]
     pub fn sort_subslice_by_axis<R: RangeBounds<usize> + Copy>(&mut self, range: R, axis: Axis) {
         let start_bound = match range.start_bound() {
-            Bound::Included(val) => 0.max(*val),
-            Bound::Excluded(val) => 0.max(val.saturating_add(1)),
+            Bound::Included(val) => *val,
+            Bound::Excluded(val) => val.saturating_add(1),
             Bound::Unbounded => 0,
         };
         let end_bound = match range.end_bound() {
-            Bound::Included(0) | Bound::Excluded(0) | Bound::Excluded(1) => {
+            Bound::Included(0) | Bound::Excluded(0 | 1) => {
                 return;
             }
             Bound::Included(val) => self.len.min(val - 1),
@@ -228,7 +220,7 @@ impl RawHittableVec {
 
     #[expect(unused)]
     pub fn sort_by_axis(&mut self, axis: Axis) {
-        (self.fns.sort_by_axis)(self.ptr, self.len, axis)
+        (self.fns.sort_by_axis)(self.ptr, self.len, axis);
     }
 
     pub const fn iter_bounded(&self) -> impl Iterator<Item = &'_ dyn Bounded> + '_ {
@@ -263,12 +255,9 @@ impl Hittable for RawHittableVec {
     fn hit(&self, r: &Ray, range: RangeInclusive<f64>) -> Option<HitRecord<'_>> {
         // dbg!("RawHittableVec");
         unsafe {
-            (self.fns.slice_into_hittable)(std::mem::transmute::<
-                *const RawHittableVec,
-                *const Slice<u8>,
-            >(self as *const _))
-            .as_ref()
-            .unwrap()
+            (self.fns.slice_into_hittable)((&raw const *self).cast::<Slice<u8>>())
+                .as_ref()
+                .unwrap()
         }
         .hit(r, range)
     }
@@ -280,11 +269,7 @@ impl Bounded for RawHittableVec {
             return aabox;
         }
         let aabox = unsafe {
-            (self.fns.slice_into_bounded)(std::mem::transmute::<
-                *const RawHittableVec,
-                *const Slice<u8>,
-            >(self as *const _))
-            .as_ref()
+            (self.fns.slice_into_bounded)((&raw const *self).cast::<Slice<u8>>()).as_ref()
         }
         .unwrap()
         .get_aabbox();
@@ -293,29 +278,17 @@ impl Bounded for RawHittableVec {
     }
 
     fn get_surface_area(&self) -> f64 {
-        unsafe {
-            ((self.fns.slice_into_bounded)(std::mem::transmute::<
-                *const RawHittableVec,
-                *const Slice<u8>,
-            >(self as *const _)))
-            .as_ref()
-        }
-        .unwrap()
-        .get_surface_area()
+        unsafe { ((self.fns.slice_into_bounded)((&raw const *self).cast::<Slice<u8>>())).as_ref() }
+            .unwrap()
+            .get_surface_area()
     }
 }
 
 impl std::fmt::Debug for RawHittableVec {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        unsafe {
-            (self.fns.slice_into_debug)(std::mem::transmute::<
-                *const RawHittableVec,
-                *const Slice<u8>,
-            >(self as *const _))
-            .as_ref()
-        }
-        .unwrap()
-        .fmt(f)
+        unsafe { (self.fns.slice_into_debug)((&raw const *self).cast::<Slice<u8>>()).as_ref() }
+            .unwrap()
+            .fmt(f)
     }
 }
 

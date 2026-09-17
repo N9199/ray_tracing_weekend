@@ -34,6 +34,7 @@ mod plane_divided {
     }
 
     impl BoundedVolumeHierarchy {
+        #[must_use]
         pub fn depth(&self) -> usize {
             match self {
                 BoundedVolumeHierarchy::Leaf(_) => 1,
@@ -43,6 +44,7 @@ mod plane_divided {
             }
         }
 
+        #[must_use]
         pub const fn node_count(&self) -> usize {
             match self {
                 BoundedVolumeHierarchy::Leaf(_) => 1,
@@ -52,6 +54,7 @@ mod plane_divided {
             }
         }
 
+        #[must_use]
         pub const fn len(&self) -> usize {
             match self {
                 BoundedVolumeHierarchy::Leaf(hittable_list) => hittable_list.len(),
@@ -177,8 +180,7 @@ mod plane_divided {
                             .flatten(),
                     ) {
                         (None, None) => None,
-                        (None, Some(v)) => Some(v),
-                        (Some(v), None) => Some(v),
+                        (None, Some(v)) | (Some(v), None) => Some(v),
                         (Some(v1), Some(v2)) => [v1, v2]
                             .into_iter()
                             .min_by(|a, b| a.get_t().total_cmp(&b.get_t())),
@@ -215,7 +217,7 @@ mod flat {
     use geometry::aabox::Box3DExt as _;
     use geometry::{
         aabox::AABBox,
-        aaplane::{Axis, get_axis},
+        aaplane::{get_axis, Axis},
         bounded::Bounded,
     };
 
@@ -226,7 +228,7 @@ mod flat {
     enum BVHNode {
         Leaf {
             parent_index: usize,
-            /// First is index in inner and the second is inside the RawHittableVec
+            /// First is index in inner and the second is inside the `RawHittableVec`
             shape_index: (usize, usize),
         },
         Node {
@@ -253,7 +255,6 @@ mod flat {
         fn best_separator<'a>(
             bounded_iter: impl IntoIterator<Item = &'a dyn Bounded> + 'a,
         ) -> (Axis, usize, f64) {
-            let temp_vec = bounded_iter.into_iter().map(|v| v.get_aabbox()).collect();
             fn best_separator(mut bboxes: Vec<AABBox>) -> (Axis, usize, f64) {
                 // First find best axis
                 let mut best_separator_val = (usize::MAX, f64::INFINITY, Axis::X, 0.);
@@ -277,7 +278,7 @@ mod flat {
                             bbox_axis_size,
                             axis,
                             *bboxes[bboxes.len() / 2].axis(axis).start(),
-                        )
+                        );
                     }
                 }
                 (
@@ -286,9 +287,11 @@ mod flat {
                     best_separator_val.3,
                 )
             }
+            let temp_vec = bounded_iter.into_iter().map(Bounded::get_aabbox).collect();
             best_separator(temp_vec)
         }
 
+        #[allow(clippy::many_single_char_names)]
         fn build_nodes(
             curr_node: usize,
             i: (usize, usize),

@@ -95,7 +95,7 @@ impl Vec3 {
 
     #[inline]
     #[must_use]
-    pub fn is_near_zero(self) -> bool {
+    pub const fn is_near_zero(self) -> bool {
         const EPS: f64 = 1e-8;
         self.x.abs() < EPS && self.y.abs() < EPS && self.z.abs() < EPS
     }
@@ -129,7 +129,7 @@ impl Vec3 {
 
     #[inline]
     #[must_use]
-    pub fn component_mul(self, other: Self) -> Self {
+    pub const fn component_mul(self, other: Self) -> Self {
         Self {
             x: self.x * other.x,
             y: self.y * other.y,
@@ -139,7 +139,7 @@ impl Vec3 {
 
     #[inline]
     #[must_use]
-    pub fn component_div(self, other: Self) -> Self {
+    pub const fn component_div(self, other: Self) -> Self {
         Self {
             x: self.x / other.x,
             y: self.y / other.y,
@@ -183,18 +183,14 @@ impl Neg for Vec3 {
 impl MulAssign<f64> for Vec3 {
     #[inline]
     fn mul_assign(&mut self, rhs: f64) {
-        self.x *= rhs;
-        self.y *= rhs;
-        self.z *= rhs;
+        *self = *self * rhs;
     }
 }
 
 impl MulAssign for Vec3 {
     #[inline]
     fn mul_assign(&mut self, rhs: Vec3) {
-        self.x *= rhs.x;
-        self.y *= rhs.y;
-        self.z *= rhs.z;
+        *self = *self * rhs;
     }
 }
 
@@ -203,7 +199,7 @@ impl Mul for Vec3 {
 
     #[inline]
     fn mul(self, rhs: Self) -> Self::Output {
-        Self::new_array([self.x * rhs.x, self.y * rhs.y, self.z * rhs.z])
+        self.component_mul(rhs)
     }
 }
 
@@ -227,16 +223,14 @@ impl Div for Vec3 {
     type Output = Self;
     #[inline]
     fn div(self, rhs: Vec3) -> Self::Output {
-        Self::new_array([self.x / rhs.x, self.y / rhs.y, self.z / rhs.z])
+        self.component_div(rhs)
     }
 }
 
 impl DivAssign for Vec3 {
     #[inline]
     fn div_assign(&mut self, rhs: Vec3) {
-        self.x /= rhs.x;
-        self.y /= rhs.y;
-        self.z /= rhs.z;
+        *self = *self / rhs;
     }
 }
 

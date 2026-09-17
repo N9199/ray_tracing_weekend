@@ -24,6 +24,9 @@ pub struct Cuboid {
 }
 
 impl Cuboid {
+    /// # Panics
+    /// If `T` fails to be converted into `DynMaterial` this function will panic
+    #[must_use]
     pub fn new<T>(p: Point3, q: Point3, mat_ptr: T) -> Self
     where
         T: TryInto<DynMaterial>,
@@ -71,7 +74,7 @@ impl Bounded for Cuboid {
     }
 
     fn get_surface_area(&self) -> f64 {
-        self.quads.iter().map(|q| q.get_surface_area()).sum()
+        self.quads.iter().map(Bounded::get_surface_area).sum()
     }
 }
 

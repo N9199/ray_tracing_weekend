@@ -9,12 +9,13 @@ use geometry::{
     aabox::AABBox,
     vec3::{Point3, Vec3},
 };
-use rand::Rng as _;
 use rand::distributions::Open01;
+use rand::Rng as _;
 
 use crate::hittable::{BoundedHittable, HitRecord, Hittable};
 use crate::material::DynMaterial;
 use crate::ray::Ray;
+use crate::utils::random_utils::UNIT;
 
 #[cfg(feature = "hit_counters")]
 pub(crate) static TRIANGLES_HIT_COUNTER: AtomicU32 = AtomicU32::new(0);
@@ -32,6 +33,9 @@ pub struct Triangle {
 }
 
 impl Triangle {
+    /// # Panics
+    /// If `T` fails to be converted into `DynMaterial` this function will panic
+    #[must_use]
     pub fn new<T>(q: Point3, u: Vec3, v: Vec3, mat_ptr: T) -> Self
     where
         T: TryInto<DynMaterial>,
@@ -81,7 +85,6 @@ impl Hittable for Triangle {
         (range.contains(&t)).then_some(())?;
         let point = r.at(t);
         let (u, v) = self.get_triangle_uv(point);
-        const UNIT: RangeInclusive<f64> = (0.)..=1.;
         // dbg!(UNIT.contains(&u), UNIT.contains(&v), u, v, point);
         (UNIT.contains(&(u + v))).then(|| {
             #[cfg(feature = "hit_counters")]

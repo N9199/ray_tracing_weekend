@@ -28,7 +28,7 @@ pub mod slice {
         pub fn get_aabboxes(&self) -> impl Iterator<Item = AABBox> {
             unsafe { std::slice::from_raw_parts(self.ptr.cast_const(), self.len) }
                 .iter()
-                .map(|v| v.get_aabbox())
+                .map(Bounded::get_aabbox)
         }
     }
 
@@ -51,7 +51,7 @@ pub mod slice {
         fn get_aabbox(&self) -> AABBox {
             unsafe { std::slice::from_raw_parts_mut(self.ptr, self.len) }
                 .iter()
-                .map(|obj| obj.get_aabbox())
+                .map(Bounded::get_aabbox)
                 .reduce(|acc, e| acc.enclose(&e))
                 .expect("Slice shouldn't be empty")
         }
@@ -80,7 +80,7 @@ pub mod slice {
 }
 
 pub mod random_utils {
-    use std::f64::consts::PI;
+    use std::{f64::consts::PI, range::RangeInclusive};
 
     use rand::{
         distributions::{Standard, Uniform},
@@ -89,6 +89,11 @@ pub mod random_utils {
     };
 
     use geometry::vec3::Vec3;
+
+    pub const UNIT: RangeInclusive<f64> = RangeInclusive {
+        start: 0.,
+        last: 1.,
+    };
 
     #[inline]
     pub fn random_f64_2<T: rand::Rng + ?Sized>(rng: &mut T) -> f64 {
@@ -111,7 +116,7 @@ pub mod random_utils {
             //     r * phi.cos(),
             // )
             loop {
-                let mut inner = [(); 3].map(|_| 2. * rng.sample::<f64, _>(Standard) - 1.);
+                let mut inner = [(); 3].map(|()| 2. * rng.sample::<f64, _>(Standard) - 1.);
                 inner.shuffle(rng);
                 let out = Vec3::from(inner);
                 if out.square_length() < 1. {

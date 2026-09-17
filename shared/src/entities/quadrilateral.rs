@@ -5,7 +5,7 @@ use std::{
     ops::{Div, RangeInclusive, Sub},
 };
 
-use rand::{Rng as _, distributions::Open01};
+use rand::{distributions::Open01, Rng as _};
 
 use geometry::{
     aabox::AABBox,
@@ -17,6 +17,7 @@ use crate::{
     hittable::{BoundedHittable, HitRecord, Hittable},
     material::DynMaterial,
     ray::Ray,
+    utils::random_utils::UNIT,
 };
 
 #[derive(Debug, Clone)]
@@ -32,6 +33,9 @@ pub struct Quad {
 }
 
 impl Quad {
+    /// # Panics
+    /// If `T` fails to be converted into `DynMaterial` this function will panic
+    #[must_use]
     pub fn new<T>(q: Point3, u: Vec3, v: Vec3, mat_ptr: T) -> Self
     where
         T: TryInto<DynMaterial>,
@@ -85,7 +89,6 @@ impl Hittable for Quad {
         (range.contains(&t)).then_some(())?;
         let point = r.at(t);
         let (u, v) = self.get_quad_uv(point);
-        const UNIT: RangeInclusive<f64> = (0.)..=1.;
         // dbg!(UNIT.contains(&u), UNIT.contains(&v), u, v, point);
         (UNIT.contains(&u) && UNIT.contains(&v)).then(|| {
             // dbg!("Quad Hit!");
