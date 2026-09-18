@@ -1,10 +1,10 @@
 use std::{fmt::Debug, ops::RangeInclusive};
 
 #[cfg(feature = "euclid")]
-use geometry::aabox::Box3DExt as _;
+use geometry::aabbox::Box3DExt as _;
 
 use geometry::{
-    aabox::AABBox,
+    aabbox::AABBox,
     aaplane::get_axis,
     bounded::Bounded,
     vec3::{Point3, Vec3},

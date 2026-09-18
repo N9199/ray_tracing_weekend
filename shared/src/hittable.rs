@@ -19,8 +19,8 @@ mod aabox_extend {
     use std::sync::atomic::{self, AtomicU32};
 
     #[cfg(feature = "euclid")]
-    use geometry::aabox::Box3DExt as _;
-    use geometry::{aabox::AABBox, aaplane, bounded::Bounded};
+    use geometry::aabbox::Box3DExt as _;
+    use geometry::{aabbox::AABBox, aaplane, bounded::Bounded};
 
     use crate::ray::Ray;
 

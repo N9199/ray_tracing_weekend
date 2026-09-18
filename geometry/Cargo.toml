@@ -6,6 +6,7 @@ edition = {workspace = true}
 [features]
 euclid = ["dep:euclid"]
 debug = []
+test-utils = []
 
 [dependencies]
 euclid = {version = "0.22.11", optional = true}

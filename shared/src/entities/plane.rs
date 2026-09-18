@@ -6,7 +6,7 @@ use std::{
 };
 
 use geometry::{
-    aabox::AABBox,
+    aabbox::AABBox,
     bounded::Bounded,
     vec3::{Point3, Vec3},
 };

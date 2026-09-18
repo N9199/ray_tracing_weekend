@@ -8,7 +8,7 @@ use std::{
 use rand::{distributions::Open01, Rng as _};
 
 use geometry::{
-    aabox::AABBox,
+    aabbox::AABBox,
     bounded::Bounded,
     vec3::{Point3, Vec3},
 };

@@ -4,9 +4,9 @@ mod plane_divided {
     use std::ops::RangeInclusive;
 
     #[cfg(feature = "euclid")]
-    use geometry::aabox::Box3DExt as _;
+    use geometry::aabbox::Box3DExt as _;
     use geometry::{
-        aabox::AABBox,
+        aabbox::AABBox,
         aaplane::AAPlane,
         bounded::Bounded,
         vec3::{Point3, Vec3},
@@ -214,9 +214,9 @@ mod flat {
     use arrayvec::ArrayVec;
 
     #[cfg(feature = "euclid")]
-    use geometry::aabox::Box3DExt as _;
+    use geometry::aabbox::Box3DExt as _;
     use geometry::{
-        aabox::AABBox,
+        aabbox::AABBox,
         aaplane::{get_axis, Axis},
         bounded::Bounded,
     };

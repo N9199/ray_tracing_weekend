@@ -4,7 +4,7 @@ use std::{
     ops::{DivAssign, Index, IndexMut},
 };
 
-use crate::{aabox::AABBox, bounded::Bounded, vec3::Point3};
+use crate::{aabbox::AABBox, bounded::Bounded, vec3::Point3};
 
 #[repr(C)]
 #[derive(Debug, Default, Clone, Copy)]
@@ -277,5 +277,105 @@ impl From<[f64; 3]> for Vec3 {
 impl Sum for Vec3 {
     fn sum<I: Iterator<Item = Self>>(iter: I) -> Self {
         iter.fold(Vec3::default(), |accum, other| accum + other)
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::Vec3;
+    use crate::test_utils::{assert_close, assert_vec};
+
+    const TOLERANCE: f64 = 1e-12;
+
+    #[test]
+    fn arithmetic_and_vector_identities() {
+        let a = Vec3::new(1., 2., 3.);
+        let b = Vec3::new(-4., 5., 0.5);
+        assert_vec(a + b, Vec3::new(-3., 7., 3.5), TOLERANCE);
+        assert_vec(a - b, Vec3::new(5., -3., 2.5), TOLERANCE);
+        assert_vec(a + Vec3::zero(), a, TOLERANCE);
+        assert_vec(a - a, Vec3::zero(), TOLERANCE);
+        assert_vec(a * 1., a, TOLERANCE);
+        assert_vec(
+            Vec3::new(1., -2., 4.) * 2.,
+            Vec3::new(2., -4., 8.),
+            TOLERANCE,
+        );
+        assert_vec(
+            Vec3::new(1., -2., 4.) / 2.,
+            Vec3::new(0.5, -1., 2.),
+            TOLERANCE,
+        );
+        assert_vec(
+            Vec3::new(2., 3., 4.) * Vec3::new(5., 2., -1.),
+            Vec3::new(10., 6., -4.),
+            TOLERANCE,
+        );
+        assert_vec(
+            Vec3::new(10., 6., -4.) / Vec3::new(5., 2., -1.),
+            Vec3::new(2., 3., 4.),
+            TOLERANCE,
+        );
+        assert_close(a.dot(b), b.dot(a), TOLERANCE);
+        assert_close(a.dot(a), a.square_length(), TOLERANCE);
+        assert_vec(a.cross(b), -b.cross(a), TOLERANCE);
+    }
+
+    #[test]
+    fn cross_products_follow_the_right_handed_basis() {
+        let x = Vec3::new(1., 0., 0.);
+        let y = Vec3::new(0., 1., 0.);
+        let z = Vec3::new(0., 0., 1.);
+        for (left, right, expected) in [(x, y, z), (y, z, x), (z, x, y)] {
+            let cross = left.cross(right);
+            assert_vec(cross, expected, TOLERANCE);
+            assert_close(cross.dot(left), 0., TOLERANCE);
+            assert_close(cross.dot(right), 0., TOLERANCE);
+        }
+    }
+
+    #[test]
+    fn length_normalization_reflection_and_refraction() {
+        let vector = Vec3::new(1., 2., 2.);
+        assert_close(vector.length(), 3., TOLERANCE);
+        assert_close(vector.normalize().length(), 1., TOLERANCE);
+        assert_vec(vector.normalize() * vector.length(), vector, TOLERANCE);
+        assert_vec(
+            Vec3::new(1., -1., 0.).reflect(Vec3::new(0., 1., 0.)),
+            Vec3::new(1., 1., 0.),
+            TOLERANCE,
+        );
+        assert_vec(
+            Vec3::new(0., -1., 0.).refract(Vec3::new(0., 1., 0.), 1.),
+            Vec3::new(0., -1., 0.),
+            TOLERANCE,
+        );
+        let refracted =
+            Vec3::new(0.5, -(3.0_f64).sqrt() / 2., 0.).refract(Vec3::new(0., 1., 0.), 0.8);
+        assert!(refracted.to_array().into_iter().all(f64::is_finite));
+        assert!(refracted.x > 0.);
+    }
+
+    #[test]
+    fn constructors_indexing_and_sum_are_consistent() {
+        let mut vector = Vec3::from([1., 2., 3.]);
+        assert_eq!(vector.to_array(), [1., 2., 3.]);
+        assert_eq!([vector[0], vector[1], vector[2]], [1., 2., 3.]);
+        vector[1] = 4.;
+        assert_vec(vector, Vec3::new(1., 4., 3.), TOLERANCE);
+        assert_vec(std::iter::empty().sum(), Vec3::zero(), TOLERANCE);
+        assert_vec(
+            [Vec3::new(1., 2., 3.), Vec3::new(-1., 4., 2.)]
+                .into_iter()
+                .sum(),
+            Vec3::new(0., 6., 5.),
+            TOLERANCE,
+        );
+    }
+
+    #[test]
+    fn near_zero_uses_the_documented_component_threshold() {
+        assert!(Vec3::new(0.99e-8, -0.99e-8, 0.).is_near_zero());
+        assert!(!Vec3::new(1.01e-8, 0., 0.).is_near_zero());
     }
 }

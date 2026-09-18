@@ -9,7 +9,7 @@ use std::{
 use rand::{distributions::Standard, Rng};
 
 use geometry::{
-    aabox::AABBox,
+    aabbox::AABBox,
     bounded::Bounded,
     onb::Onb,
     vec3::{Point3, Vec3},

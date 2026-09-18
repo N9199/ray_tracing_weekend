@@ -6,7 +6,7 @@ use std::ops::{Div, RangeInclusive, Sub};
 
 use geometry::bounded::Bounded;
 use geometry::{
-    aabox::AABBox,
+    aabbox::AABBox,
     vec3::{Point3, Vec3},
 };
 use rand::distributions::Open01;

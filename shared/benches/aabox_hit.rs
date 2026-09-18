@@ -2,7 +2,7 @@ use criterion::{criterion_group, criterion_main, Criterion};
 use rand::{rngs::SmallRng, Rng, SeedableRng};
 
 use geometry::{
-    aabox::AABBox,
+    aabbox::AABBox,
     vec3::{Point3, Vec3},
 };
 

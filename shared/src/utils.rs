@@ -2,8 +2,8 @@ pub mod slice {
     use std::{fmt::Debug, ops::RangeInclusive};
 
     #[cfg(feature = "euclid")]
-    use geometry::aabox::Box3DExt as _;
-    use geometry::{aabox::AABBox, bounded::Bounded};
+    use geometry::aabbox::Box3DExt as _;
+    use geometry::{aabbox::AABBox, bounded::Bounded};
 
     use crate::{
         hittable::{BoundedHittable, HitRecord, Hittable},

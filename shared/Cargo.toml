@@ -22,6 +22,7 @@ rayon = "1.10.0"
 geometry = {path = "../geometry"}
 
 [dev-dependencies]
+geometry = {path = "../geometry", features = ["test-utils"]}
 criterion = "0.4.0"
 
 [[bench]]

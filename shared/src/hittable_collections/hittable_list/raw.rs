@@ -2,7 +2,7 @@ mod type_shit {
     use std::{alloc::Layout, fmt::Debug, slice};
 
     #[cfg(feature = "euclid")]
-    use geometry::aabox::Box3DExt as _;
+    use geometry::aabbox::Box3DExt as _;
     use geometry::{
         aaplane::{AAPlane, Axis},
         bounded::Bounded,
@@ -109,9 +109,9 @@ use std::{
 
 use crossbeam::atomic::AtomicCell;
 #[cfg(feature = "euclid")]
-use geometry::aabox::Box3DExt as _;
+use geometry::aabbox::Box3DExt as _;
 use geometry::{
-    aabox::AABBox,
+    aabbox::AABBox,
     aaplane::{AAPlane, Axis},
     bounded::Bounded,
 };
