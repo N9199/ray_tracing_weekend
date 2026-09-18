@@ -127,3 +127,91 @@ impl BoundedHittable for Quad {
     //     true
     // }
 }
+
+#[cfg(test)]
+mod tests {
+    use geometry::{
+        test_utils::{
+            assert_close as assert_close_with_tolerance,
+            assert_point as assert_point_with_tolerance, assert_vec as assert_vec_with_tolerance,
+        },
+        vec3::{Point3, Vec3},
+    };
+
+    use crate::{entities::Quad, hittable::Hittable, material::INVISIBLE_PTR, ray::Ray};
+
+    const TOLERANCE: f64 = 1e-10;
+
+    fn assert_close(actual: f64, expected: f64) {
+        assert_close_with_tolerance(actual, expected, TOLERANCE);
+    }
+
+    fn assert_vec(actual: Vec3, expected: Vec3) {
+        assert_vec_with_tolerance(actual, expected, TOLERANCE);
+    }
+
+    fn assert_point(actual: Point3, expected: Point3) {
+        assert_point_with_tolerance(actual, expected, TOLERANCE);
+    }
+
+    fn quad() -> Quad {
+        Quad::new(
+            Point3::zero(),
+            Vec3::new(2., 0., 0.),
+            Vec3::new(0., 2., 0.),
+            INVISIBLE_PTR,
+        )
+    }
+
+    #[test]
+    fn quad_is_two_sided_and_orients_hit_record_against_ray() {
+        let quad = quad();
+        let forward = Ray::new(Point3::new(1., 1., -2.), Vec3::new(0., 0., 1.));
+        let hit = quad.hit(&forward, 0. ..=f64::INFINITY).unwrap();
+        assert_close(hit.get_t(), 2.);
+        assert_point(hit.get_p(), Point3::new(1., 1., 0.));
+        assert_close(hit.get_u(), 0.5);
+        assert_close(hit.get_v(), 0.5);
+        assert!(!hit.is_front_face());
+        assert_vec(hit.get_normal(), Vec3::new(0., 0., -1.));
+
+        let reverse = Ray::new(Point3::new(1., 1., 2.), Vec3::new(0., 0., -1.));
+        let hit = quad.hit(&reverse, 0. ..=f64::INFINITY).unwrap();
+        assert!(hit.is_front_face());
+        assert_vec(hit.get_normal(), Vec3::new(0., 0., 1.));
+    }
+
+    #[test]
+    fn quad_includes_edges_and_corners_but_rejects_points_outside() {
+        let quad = quad();
+        for (x, y, expected_u, expected_v) in [
+            (0., 1., 0., 0.5),
+            (2., 1., 1., 0.5),
+            (1., 0., 0.5, 0.),
+            (1., 2., 0.5, 1.),
+            (0., 0., 0., 0.),
+            (2., 2., 1., 1.),
+        ] {
+            let ray = Ray::new(Point3::new(x, y, -1.), Vec3::new(0., 0., 1.));
+            let hit = quad.hit(&ray, 0. ..=1.).unwrap();
+            assert_close(hit.get_u(), expected_u);
+            assert_close(hit.get_v(), expected_v);
+        }
+
+        let outside = Ray::new(Point3::new(2.000_001, 1., -1.), Vec3::new(0., 0., 1.));
+        assert!(quad.hit(&outside, 0. ..=2.).is_none());
+    }
+
+    #[test]
+    fn quad_respects_closed_range_and_rejects_parallel_rays() {
+        let quad = quad();
+        let ray = Ray::new(Point3::new(1., 1., -2.), Vec3::new(0., 0., 1.));
+        assert_close(quad.hit(&ray, 2. ..=2.).unwrap().get_t(), 2.);
+        assert!(quad.hit(&ray, 0. ..=1.999).is_none());
+
+        let parallel = Ray::new(Point3::new(1., 1., 1.), Vec3::new(1., 0., 0.));
+        assert!(quad.hit(&parallel, 0. ..=f64::INFINITY).is_none());
+        let threshold = Ray::new(Point3::new(1., 1., 1.), Vec3::new(0., 0., f64::EPSILON));
+        assert!(quad.hit(&threshold, 0. ..=f64::INFINITY).is_none());
+    }
+}

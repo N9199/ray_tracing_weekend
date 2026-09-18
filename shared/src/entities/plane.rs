@@ -64,7 +64,7 @@ pub(crate) static PLANE_HIT_COUNTER: AtomicU32 = AtomicU32::new(0);
 impl Hittable for Plane {
     fn hit(&self, r: &Ray, range: RangeInclusive<f64>) -> Option<HitRecord<'_>> {
         let denom = r.get_direction().dot(self.normal);
-        (denom > f64::EPSILON).then_some(())?;
+        (denom < -f64::EPSILON).then_some(())?;
         let t = -(r.get_origin() - self.point).dot(self.normal).div(denom);
         let point = r.at(t);
         let (u, v) = self.get_plane_uv(point);
@@ -114,5 +114,71 @@ impl Bounded for Plane {
 impl BoundedHittable for Plane {
     fn is_aabbox_hit(&self, r: &Ray, range: RangeInclusive<f64>) -> bool {
         self.hit(r, range).is_some()
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use geometry::{
+        test_utils::{
+            assert_close as assert_close_with_tolerance,
+            assert_point as assert_point_with_tolerance, assert_vec as assert_vec_with_tolerance,
+        },
+        vec3::{Point3, Vec3},
+    };
+
+    use crate::{entities::Plane, hittable::Hittable, material::INVISIBLE_PTR, ray::Ray};
+
+    const TOLERANCE: f64 = 1e-10;
+
+    fn assert_close(actual: f64, expected: f64) {
+        assert_close_with_tolerance(actual, expected, TOLERANCE);
+    }
+
+    fn assert_vec(actual: Vec3, expected: Vec3) {
+        assert_vec_with_tolerance(actual, expected, TOLERANCE);
+    }
+
+    fn assert_point(actual: Point3, expected: Point3) {
+        assert_point_with_tolerance(actual, expected, TOLERANCE);
+    }
+
+    fn plane() -> Plane {
+        Plane::new(Point3::zero(), Vec3::new(0., 1., 0.), INVISIBLE_PTR)
+    }
+
+    #[test]
+    fn plane_hits_front_side_with_expected_point_normal_and_uv() {
+        let plane = plane();
+        let ray = Ray::new(Point3::new(1., 1., 2.), Vec3::new(0., -1., 0.));
+        let hit = plane.hit(&ray, 0. ..=f64::INFINITY).unwrap();
+        assert_close(hit.get_t(), 1.);
+        assert_point(hit.get_p(), Point3::new(1., 0., 2.));
+        assert_vec(hit.get_normal(), Vec3::new(0., 1., 0.));
+        assert!(hit.is_front_face());
+        assert_close(hit.get_u(), 1.);
+        assert_close(hit.get_v(), 2.);
+    }
+
+    #[test]
+    fn plane_respects_closed_range_and_one_sided_current_behavior() {
+        let plane = plane();
+        let front_ray = Ray::new(Point3::new(0., 1., 0.), Vec3::new(0., -1., 0.));
+        assert_close(plane.hit(&front_ray, 1. ..=1.).unwrap().get_t(), 1.);
+        assert!(plane.hit(&front_ray, 0. ..=0.999).is_none());
+        assert!(plane.hit(&front_ray, 1.001..=2.).is_none());
+
+        let back_ray = Ray::new(Point3::new(0., -1., 0.), Vec3::new(0., 1., 0.));
+        assert!(plane.hit(&back_ray, 0. ..=f64::INFINITY).is_none());
+    }
+
+    #[test]
+    fn plane_rejects_parallel_and_threshold_denominators() {
+        let plane = plane();
+        let parallel = Ray::new(Point3::new(0., 1., 0.), Vec3::new(1., 0., 0.));
+        assert!(plane.hit(&parallel, 0. ..=f64::INFINITY).is_none());
+
+        let threshold = Ray::new(Point3::new(0., 1., 0.), Vec3::new(0., -f64::EPSILON, 0.));
+        assert!(plane.hit(&threshold, 0. ..=f64::INFINITY).is_none());
     }
 }

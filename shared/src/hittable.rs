@@ -216,3 +216,115 @@ where
             .min_by(|a, b| a.get_t().total_cmp(&b.get_t()))
     }
 }
+
+#[cfg(test)]
+mod tests {
+    use geometry::{
+        aabbox::AABBox,
+        test_utils::{
+            assert_close as assert_close_with_tolerance,
+            assert_point as assert_point_with_tolerance, assert_vec as assert_vec_with_tolerance,
+        },
+        vec3::{Point3, Vec3},
+    };
+
+    use crate::{
+        entities::Sphere,
+        hittable::{AABoxHit as _, BoundedHittable, HitRecord},
+        material::INVISIBLE_PTR,
+        ray::Ray,
+    };
+
+    const TOLERANCE: f64 = 1e-10;
+
+    fn assert_close(actual: f64, expected: f64) {
+        assert_close_with_tolerance(actual, expected, TOLERANCE);
+    }
+
+    fn assert_point(actual: Point3, expected: Point3) {
+        assert_point_with_tolerance(actual, expected, TOLERANCE);
+    }
+
+    fn assert_vec(actual: Vec3, expected: Vec3) {
+        assert_vec_with_tolerance(actual, expected, TOLERANCE);
+    }
+
+    fn box_fixture() -> AABBox {
+        AABBox::new(Point3::new(0., 0., 0.), Point3::new(1., 1., 1.))
+    }
+
+    #[test]
+    fn aabb_hits_misses_and_swaps_negative_axis_intervals() {
+        let aabb = box_fixture();
+        let through_x = Ray::new(Point3::new(-1., 0.5, 0.5), Vec3::new(1., 0., 0.));
+        assert_close(aabb.hit(&through_x, 0. ..=f64::INFINITY).unwrap(), 1.);
+        assert!(aabb.is_hit(&through_x, 0. ..=f64::INFINITY));
+
+        let outside_y = Ray::new(Point3::new(-1., 2., 0.5), Vec3::new(1., 0., 0.));
+        assert_eq!(aabb.hit(&outside_y, 0. ..=f64::INFINITY), None);
+
+        let reverse_x = Ray::new(Point3::new(2., 0.5, 0.5), Vec3::new(-1., 0., 0.));
+        assert_close(aabb.hit(&reverse_x, 0. ..=f64::INFINITY).unwrap(), 1.);
+
+        let reverse_y = Ray::new(Point3::new(0.5, 2., 0.5), Vec3::new(0., -1., 0.));
+        assert_close(aabb.hit(&reverse_y, 0. ..=f64::INFINITY).unwrap(), 1.);
+    }
+
+    #[test]
+    fn aabb_clips_to_inclusive_ray_parameter_range() {
+        let aabb = box_fixture();
+        let ray = Ray::new(Point3::new(-1., 0.5, 0.5), Vec3::new(1., 0., 0.));
+        assert_close(aabb.hit(&ray, 0. ..=f64::INFINITY).unwrap(), 1.);
+        assert_close(aabb.hit(&ray, 1.5..=3.).unwrap(), 1.5);
+        assert_eq!(aabb.hit(&ray, 0. ..=0.999), None);
+        assert_close(aabb.hit(&ray, 1. ..=1.).unwrap(), 1.);
+        assert_eq!(aabb.hit(&ray, 0. ..=0.999_999), None);
+    }
+
+    #[test]
+    fn aabb_accepts_slab_tangency() {
+        let aabb = box_fixture();
+        let ray = Ray::new(Point3::new(-1., 0., 0.5), Vec3::new(1., 1., 0.));
+        assert_close(aabb.hit(&ray, 0. ..=f64::INFINITY).unwrap(), 1.);
+        assert_close(aabb.hit(&ray, 1. ..=1.).unwrap(), 1.);
+    }
+
+    #[test]
+    fn hit_record_orients_normal_and_preserves_ray_parameter_and_uvs() {
+        let ray = Ray::new(Point3::new(1., 2., 3.), Vec3::new(0., 0., -2.));
+        let front = HitRecord::new(&ray, 0.5, Vec3::new(0., 0., 1.), 0.25, 0.75, INVISIBLE_PTR);
+        assert_point(front.get_p(), Point3::new(1., 2., 2.));
+        assert_close(front.get_t(), 0.5);
+        assert_close(front.get_u(), 0.25);
+        assert_close(front.get_v(), 0.75);
+        assert!(front.is_front_face());
+        assert_vec(front.get_normal(), Vec3::new(0., 0., 1.));
+
+        let back_ray = Ray::new(Point3::new(1., 2., 3.), Vec3::new(0., 0., 2.));
+        let back = HitRecord::new(
+            &back_ray,
+            0.5,
+            Vec3::new(0., 0., 1.),
+            0.25,
+            0.75,
+            INVISIBLE_PTR,
+        );
+        assert!(!back.is_front_face());
+        assert_vec(back.get_normal(), Vec3::new(0., 0., -1.));
+    }
+
+    #[test]
+    fn bounded_hit_uses_aabb_as_a_gate_not_as_the_surface_hit() {
+        let sphere = Sphere::new(Point3::zero(), 1., INVISIBLE_PTR);
+        let box_only = Ray::new(Point3::new(-3., 0.9, 0.9), Vec3::new(1., 0., 0.));
+        assert!(sphere.is_aabbox_hit(&box_only, 0. ..=f64::INFINITY));
+        assert!(sphere.bounded_hit(&box_only, 0. ..=f64::INFINITY).is_none());
+
+        let surface_hit = Ray::new(Point3::new(-3., 0., 0.), Vec3::new(1., 0., 0.));
+        let record = sphere
+            .bounded_hit(&surface_hit, 0. ..=f64::INFINITY)
+            .unwrap();
+        assert_close(record.get_t(), 2.);
+        assert_point(record.get_p(), Point3::new(-1., 0., 0.));
+    }
+}

@@ -46,7 +46,7 @@ impl Triangle {
         let normal = u.cross(v);
         let w = normal.div(normal.square_length());
         let area = normal.length() / 2.;
-        let normal = normal / area;
+        let normal = normal.unit_vec();
         Self {
             q,
             u,
@@ -86,7 +86,7 @@ impl Hittable for Triangle {
         let point = r.at(t);
         let (u, v) = self.get_triangle_uv(point);
         // dbg!(UNIT.contains(&u), UNIT.contains(&v), u, v, point);
-        (UNIT.contains(&(u + v))).then(|| {
+        (UNIT.contains(&(u + v)) && u >= 0. && v >= 0.).then(|| {
             #[cfg(feature = "hit_counters")]
             TRIANGLES_HIT_COUNTER.fetch_add(1, atomic::Ordering::Relaxed);
             // dbg!(self.mat_ptr.as_ref());
@@ -121,3 +121,95 @@ impl Hittable for Triangle {
 }
 
 impl BoundedHittable for Triangle {}
+
+#[cfg(test)]
+mod tests {
+    use geometry::{
+        test_utils::{
+            assert_close as assert_close_with_tolerance,
+            assert_point as assert_point_with_tolerance, assert_vec as assert_vec_with_tolerance,
+        },
+        vec3::{Point3, Vec3},
+    };
+
+    use crate::{entities::Triangle, hittable::Hittable, material::INVISIBLE_PTR, ray::Ray};
+
+    const TOLERANCE: f64 = 1e-10;
+
+    fn assert_close(actual: f64, expected: f64) {
+        assert_close_with_tolerance(actual, expected, TOLERANCE);
+    }
+
+    fn assert_vec(actual: Vec3, expected: Vec3) {
+        assert_vec_with_tolerance(actual, expected, TOLERANCE);
+    }
+
+    fn assert_point(actual: Point3, expected: Point3) {
+        assert_point_with_tolerance(actual, expected, TOLERANCE);
+    }
+
+    fn triangle() -> Triangle {
+        Triangle::new(
+            Point3::zero(),
+            Vec3::new(2., 0., 0.),
+            Vec3::new(0., 2., 0.),
+            INVISIBLE_PTR,
+        )
+    }
+
+    #[test]
+    fn triangle_hits_interior_with_expected_uv_and_two_sided_normal() {
+        let triangle = triangle();
+        let ray = Ray::new(Point3::new(0.5, 0.5, -2.), Vec3::new(0., 0., 1.));
+        let hit = triangle.hit(&ray, 0. ..=f64::INFINITY).unwrap();
+        assert_close(hit.get_t(), 2.);
+        assert_point(hit.get_p(), Point3::new(0.5, 0.5, 0.));
+        assert_close(hit.get_u(), 0.25);
+        assert_close(hit.get_v(), 0.25);
+        assert!(!hit.is_front_face());
+        assert_vec(hit.get_normal(), Vec3::new(0., 0., -1.));
+
+        let reverse = Ray::new(Point3::new(0.5, 0.5, 2.), Vec3::new(0., 0., -1.));
+        let reverse_hit = triangle.hit(&reverse, 2. ..=2.).unwrap();
+        assert!(reverse_hit.is_front_face());
+        assert_vec(reverse_hit.get_normal(), Vec3::new(0., 0., 1.));
+    }
+
+    #[test]
+    fn triangle_includes_vertices_edges_and_diagonal_but_rejects_outside_points() {
+        let triangle = triangle();
+        for (x, y, u, v) in [
+            (0., 0., 0., 0.),
+            (2., 0., 1., 0.),
+            (0., 2., 0., 1.),
+            (1., 1., 0.5, 0.5),
+            (1., 0., 0.5, 0.),
+            (0., 1., 0., 0.5),
+        ] {
+            let ray = Ray::new(Point3::new(x, y, -1.), Vec3::new(0., 0., 1.));
+            let hit = triangle.hit(&ray, 1. ..=1.).unwrap();
+            assert_close(hit.get_u(), u);
+            assert_close(hit.get_v(), v);
+        }
+
+        let beyond_diagonal = Ray::new(Point3::new(1.5, 1.5, -1.), Vec3::new(0., 0., 1.));
+        assert!(triangle.hit(&beyond_diagonal, 0. ..=2.).is_none());
+        let negative_u = Ray::new(Point3::new(-0.001, 0.5, -1.), Vec3::new(0., 0., 1.));
+        assert!(triangle.hit(&negative_u, 0. ..=2.).is_none());
+        let negative_v = Ray::new(Point3::new(0.5, -0.001, -1.), Vec3::new(0., 0., 1.));
+        assert!(triangle.hit(&negative_v, 0. ..=2.).is_none());
+    }
+
+    #[test]
+    fn triangle_rejects_parallel_rays_and_respects_range() {
+        let triangle = triangle();
+        let ray = Ray::new(Point3::new(0.5, 0.5, -2.), Vec3::new(0., 0., 1.));
+        assert!(triangle.hit(&ray, 2. ..=2.).is_some());
+        assert!(triangle.hit(&ray, 0. ..=1.999).is_none());
+
+        let parallel = Ray::new(Point3::new(0.5, 0.5, 1.), Vec3::new(1., 0., 0.));
+        assert!(triangle.hit(&parallel, 0. ..=f64::INFINITY).is_none());
+        let threshold = Ray::new(Point3::new(0.5, 0.5, 1.), Vec3::new(0., 0., f64::EPSILON));
+        assert!(triangle.hit(&threshold, 0. ..=f64::INFINITY).is_none());
+    }
+}
