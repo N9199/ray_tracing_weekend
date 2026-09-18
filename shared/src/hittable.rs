@@ -8,7 +8,7 @@ use geometry::{
     vec3::{Point3, Vec3},
 };
 
-pub use aabox_extend::AABoxHit;
+pub use aabox_extend::AABBoxHit;
 
 #[cfg(feature = "hit_counters")]
 pub(crate) use aabox_extend::AABOX_HIT_COUNTER;
@@ -27,7 +27,7 @@ mod aabox_extend {
     #[cfg(feature = "hit_counters")]
     pub(crate) static AABOX_HIT_COUNTER: AtomicU32 = AtomicU32::new(0);
 
-    pub trait AABoxHit: Bounded {
+    pub trait AABBoxHit: Bounded {
         fn is_hit(&self, r: &Ray, range: RangeInclusive<f64>) -> bool {
             self.hit(r, range).is_some()
         }
@@ -35,7 +35,8 @@ mod aabox_extend {
         fn hit(&self, r: &Ray, range: RangeInclusive<f64>) -> Option<f64>;
     }
 
-    impl AABoxHit for AABBox {
+    impl AABBoxHit for AABBox {
+        #[allow(clippy::similar_names)]
         fn hit(&self, r: &Ray, range: RangeInclusive<f64>) -> Option<f64> {
             let (x_min, x_max) = self.axis(aaplane::Axis::X).into_inner();
             let (y_min, y_max) = self.axis(aaplane::Axis::Y).into_inner();
@@ -98,6 +99,7 @@ pub struct HitRecord<'a> {
 }
 
 impl<'a> HitRecord<'a> {
+    #[allow(clippy::many_single_char_names)]
     #[inline]
     pub fn new(
         r: &Ray,
@@ -235,7 +237,7 @@ mod tests {
 
     use crate::{
         entities::Sphere,
-        hittable::{AABoxHit as _, BoundedHittable, HitRecord},
+        hittable::{AABBoxHit as _, BoundedHittable, HitRecord},
         material::INVISIBLE_PTR,
         ray::Ray,
     };

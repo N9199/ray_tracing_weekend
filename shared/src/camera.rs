@@ -19,6 +19,7 @@ use crate::{
     ray::Ray,
     utils::random_utils::UnitDisk,
 };
+
 #[cfg(feature = "euclid")]
 use geometry::vec3::Vec3Ext as _;
 use geometry::vec3::{Point3, Vec3};
@@ -26,8 +27,8 @@ use geometry::vec3::{Point3, Vec3};
 #[derive(Debug, Clone, Copy)]
 pub struct CameraBuilder {
     aspect_ratio: Option<f64>,
-    image_width: Option<u32>,
-    image_height: Option<u32>,
+    image_width: Option<u16>,
+    image_height: Option<u16>,
     samples_per_pixel: u16,
     max_depth: u32,
     background: Colour,
@@ -67,7 +68,7 @@ impl CameraBuilder {
     }
 
     #[must_use]
-    pub const fn with_image_width(self, image_width: u32) -> Self {
+    pub const fn with_image_width(self, image_width: u16) -> Self {
         Self {
             image_width: Some(image_width),
             ..self
@@ -75,7 +76,7 @@ impl CameraBuilder {
     }
 
     #[must_use]
-    pub const fn with_image_height(self, image_height: u32) -> Self {
+    pub const fn with_image_height(self, image_height: u16) -> Self {
         Self {
             image_height: Some(image_height),
             ..self
@@ -250,10 +251,10 @@ impl Default for CameraBuilder {
 
 #[derive(Debug, Clone)]
 pub struct Camera {
-    #[expect(unused)]
+    #[cfg_attr(not(test), expect(unused))]
     aspect_ratio: f64,
-    image_width: u32,
-    image_height: u32,
+    image_width: u16,
+    image_height: u16,
     samples_per_pixel: u16,
     max_depth: u32,
     background: Colour,
@@ -274,11 +275,11 @@ pub struct Camera {
     pixel00_loc: Point3,
     pixel_delta_u: Vec3,
     pixel_delta_v: Vec3,
-    #[expect(unused)]
+    #[cfg_attr(not(test), expect(unused))]
     u: Vec3,
-    #[expect(unused)]
+    #[cfg_attr(not(test), expect(unused))]
     v: Vec3,
-    #[expect(unused)]
+    #[cfg_attr(not(test), expect(unused))]
     w: Vec3,
     defocus_disk_u: Vec3,
     defocus_disk_v: Vec3,

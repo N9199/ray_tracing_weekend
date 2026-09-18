@@ -10,6 +10,9 @@ toml = "0.7.2"
 shared = {path = "../shared"}
 scenes = {path = "../scenes"}
 
+[dev-dependencies]
+geometry = {path = "../geometry", features = ["test-utils"]}
+
 [features]
 euclid = ["shared/euclid"]
 debug = ["shared/debug", "scenes/debug"]

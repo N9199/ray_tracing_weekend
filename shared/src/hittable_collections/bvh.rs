@@ -12,7 +12,7 @@ mod plane_divided {
     use rand::Rng;
 
     use crate::{
-        hittable::{AABoxHit as _, BoundedHittable, HitRecord, Hittable},
+        hittable::{AABBoxHit as _, BoundedHittable, HitRecord, Hittable},
         hittable_collections::hittable_list::HittableList,
         ray::Ray,
     };
