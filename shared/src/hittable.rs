@@ -174,6 +174,11 @@ impl<'a> HitRecord<'a> {
     pub(crate) const fn get_mut_p(&mut self) -> &mut Point3 {
         &mut self.p
     }
+
+    #[inline]
+    pub(crate) const fn get_mut_normal(&mut self) -> &mut Vec3 {
+        &mut self.normal
+    }
 }
 
 pub trait Hittable: Sync + Send + Debug {
