@@ -15,7 +15,7 @@ use shared::{
     hittable::BoundedHittable,
     hittable_collections::{bvh::BoundedVolumeHierarchy, hittable_list::HittableList},
     material::{Dielectric, DiffuseLight, Lambertian, Material, Metal, INVISIBLE_PTR},
-    texture::{CheckerTexture, NoiseTexture},
+    texture::{CheckerTexture, NoiseTexture, SolidColour},
     utils::random_utils,
 };
 mod scene_config;
@@ -160,26 +160,29 @@ pub fn checkered_spheres() -> (
     (Box::new(world), Box::new(lights), cam)
 }
 
+#[allow(clippy::missing_panics_doc)]
 #[must_use]
 pub fn simple() -> (
     Box<dyn BoundedHittable>,
     Box<dyn BoundedHittable>,
     CameraBuilder,
 ) {
+    const N: isize = 11;
     let mut lights = HittableList::default();
     let mut world = HittableList::default();
     let invisible_material = INVISIBLE_PTR;
     let ground_material = Arc::new(Lambertian::new_with_colour(Colour::new(0.9, 0.9, 0.9)));
+    // let ground_material = Arc::new(Metal::new(Colour::new(0.9, 0.9, 0.9), 0.1));
 
-    world.add(Plane::new(
-        Point3::new(0., 0., 0.),
-        Vec3::new(0., 1., 0.),
+    let radius = 6371.;
+    world.add(Sphere::new(
+        Point3::new(0., -radius, 0.),
+        radius,
         ground_material,
     ));
 
     let material1 = Arc::new(Dielectric::new(1.5));
     let mut rng = SmallRng::from_rng(thread_rng()).unwrap();
-    const N: isize = 11;
     for a in (-N)..N {
         for b in (-N)..N {
             let choose_mat: f64 = rng.sample::<f64, _>(Standard);
@@ -233,6 +236,109 @@ pub fn simple() -> (
         .with_focus_dist((lookfrom - lookat).length())
         .with_vfov(40.)
         .with_background(Colour::new(1., 1., 1.));
+
+    (
+        Box::new(BoundedVolumeHierarchy::from(world)),
+        Box::new(lights),
+        cam,
+    )
+}
+
+#[allow(clippy::missing_panics_doc)]
+#[must_use]
+pub fn simple_with_moon() -> (
+    Box<dyn BoundedHittable>,
+    Box<dyn BoundedHittable>,
+    CameraBuilder,
+) {
+    const N: isize = 11;
+    let mut lights = HittableList::default();
+    let mut world = HittableList::default();
+    let invisible_material = INVISIBLE_PTR;
+    let ground_material = Arc::new(Lambertian::new_with_colour(Colour::new(0.8, 0.8, 0.8)));
+    let moon_material = Arc::new(DiffuseLight::new(Arc::new(SolidColour(Colour::new(
+        1., 1., 1.,
+    )))));
+    // let ground_material = Arc::new(Metal::new(Colour::new(0.9, 0.9, 0.9), 0.1));
+
+    let radius = 6371.;
+    world.add(Sphere::new(
+        Point3::new(0., -radius, 0.),
+        radius,
+        ground_material,
+    ));
+
+    // moon_distance/moon_radius =~ 221
+    // Real moon_distance = 384400
+    // Real moon radius = 1737.5
+    let moon_distance = 384_400.;
+    let moon_radius = moon_distance / 221.0;
+    // let moon_theta = (67.5f64).to_radians();
+    // let moon_phi = (270f64).to_radians();
+    let moon_placement = Point3::new(-271_774.5, 0.0, -271_774.5);
+
+    lights.add(Sphere::new(
+        moon_placement,
+        moon_radius,
+        moon_material.clone(),
+    ));
+    world.add(Sphere::new(moon_placement, moon_radius, moon_material));
+
+    let material1 = Arc::new(Dielectric::new(1.5));
+    let mut rng = SmallRng::from_rng(thread_rng()).unwrap();
+    for a in (-N)..N {
+        for b in (-N)..N {
+            let choose_mat: f64 = rng.sample::<f64, _>(Standard);
+            let center = Point3::new(
+                (a) as f64 + 0.9 * rng.sample::<f64, _>(Standard),
+                0.2,
+                (b) as f64 + 0.9 * rng.sample::<f64, _>(Standard),
+            );
+            if (center - Point3::new(4., 0.2, 0.)).length() > 0.9 {
+                let mat: Arc<dyn Material> = if choose_mat < 0.8 {
+                    let albedo = Colour::new(
+                        rng.sample::<f64, _>(Standard),
+                        rng.sample::<f64, _>(Standard),
+                        rng.sample::<f64, _>(Standard),
+                    ) * Colour::new(
+                        rng.sample::<f64, _>(Standard),
+                        rng.sample::<f64, _>(Standard),
+                        rng.sample::<f64, _>(Standard),
+                    );
+                    Arc::new(Lambertian::new_with_colour(albedo))
+                } else if choose_mat < 0.95 {
+                    let albedo = Colour::new(
+                        random_utils::random_f64_2(&mut rng),
+                        random_utils::random_f64_2(&mut rng),
+                        random_utils::random_f64_2(&mut rng),
+                    );
+                    let fuzz = 1. - random_utils::random_f64_2(&mut rng);
+                    Arc::new(Metal::new(albedo, fuzz))
+                } else {
+                    lights.add(Sphere::new(center, 0.2, invisible_material));
+                    material1.clone()
+                };
+                world.add(Sphere::new(center, 0.2, mat));
+            }
+        }
+    }
+    let material2 = Arc::new(Lambertian::new_with_colour(Colour::new(0.4, 0.2, 0.1)));
+    let material3 = Arc::new(Metal::new(Colour::new(0.7, 0.6, 0.5), 0.));
+
+    world.add(Sphere::new(Point3::new(0., 1., 0.), 1., material1));
+    world.add(Sphere::new(Point3::new(-4., 1., 0.), 1., material2));
+    world.add(Sphere::new(Point3::new(4., 1., 0.), 1., material3));
+
+    lights.add(Sphere::new(Point3::new(0., 1., 0.), 1., invisible_material));
+
+    let lookfrom = Point3::new(10.0, 5.0, 10.0);
+    let lookat = Point3::new(0.0, 0.0, 0.0);
+    let cam = CameraBuilder::new()
+        .with_lookfrom(lookfrom)
+        .with_lookat(lookat)
+        .with_focus_dist((lookfrom - lookat).length())
+        .with_vfov(40.)
+        .with_background(Colour::new(0.05, 0.05, 0.05));
 
     (
         Box::new(BoundedVolumeHierarchy::from(world)),
@@ -406,6 +512,7 @@ pub fn cornell_box() -> (
 }
 
 #[must_use]
+#[allow(clippy::missing_panics_doc, clippy::too_many_lines)]
 pub fn debugging_scene() -> (
     Box<dyn BoundedHittable>,
     Box<dyn BoundedHittable>,
@@ -542,6 +649,7 @@ pub fn debugging_scene() -> (
 }
 
 #[must_use]
+#[allow(clippy::missing_panics_doc, clippy::too_many_lines)]
 pub fn simple_transform() -> (
     Box<dyn BoundedHittable>,
     Box<dyn BoundedHittable>,
@@ -663,4 +771,131 @@ pub fn simple_transform() -> (
         Box::new(BoundedVolumeHierarchy::from(lights)),
         cam,
     )
+}
+/// Minimal repro: one lambertian sphere, one ground plane, exactly one light.
+/// No randomness, no BVH complexity. If this is black, the bug is in the
+/// core scatter/pdf-mixing path, not about light *count*.
+#[must_use]
+pub fn lambertian_minimal() -> (
+    Box<dyn BoundedHittable>,
+    Box<dyn BoundedHittable>,
+    CameraBuilder,
+) {
+    let mut world = HittableList::default();
+    let mut lights = HittableList::default();
+
+    let ground_material = Arc::new(Lambertian::new_with_colour(Colour::new(0.9, 0.9, 0.9)));
+    world.add(Plane::new(
+        Point3::new(0., 0., 0.),
+        Vec3::new(0., 1., 0.),
+        ground_material,
+    ));
+
+    let sphere_material = Arc::new(Lambertian::new_with_colour(Colour::new(0.6, 0.2, 0.2)));
+    world.add(Sphere::new(Point3::new(0., 1., 0.), 1., sphere_material));
+
+    // Single light sphere, well above/behind the camera.
+    let light_material = Arc::new(DiffuseLight::new_with_colour(Colour::new(4., 4., 4.)));
+    world.add(Sphere::new(
+        Point3::new(0., 5., 3.),
+        1.,
+        light_material.clone(),
+    ));
+    lights.add(Sphere::new(Point3::new(0., 5., 3.), 1., light_material));
+
+    let cam = CameraBuilder::new()
+        .with_lookfrom(Point3::new(6., 3., 6.))
+        .with_lookat(Point3::new(0., 1., 0.))
+        .with_focus_dist(9.)
+        .with_vfov(30.)
+        .with_background(Colour::new(0., 0., 0.));
+
+    (Box::new(world), Box::new(lights), cam)
+}
+
+/// Same as `simple()`'s field of spheres, but with only ONE light in the
+/// `lights` list (not ~24), to isolate whether light *count* matters.
+#[must_use]
+pub fn simple_single_light() -> (
+    Box<dyn BoundedHittable>,
+    Box<dyn BoundedHittable>,
+    CameraBuilder,
+) {
+    let mut lights = HittableList::default();
+    let mut world = HittableList::default();
+    let ground_material = Arc::new(Lambertian::new_with_colour(Colour::new(0.9, 0.9, 0.9)));
+    world.add(Plane::new(
+        Point3::new(0., 0., 0.),
+        Vec3::new(0., 1., 0.),
+        ground_material,
+    ));
+
+    let material1 = Arc::new(Dielectric::new(1.5));
+    let material2 = Arc::new(Lambertian::new_with_colour(Colour::new(0.4, 0.2, 0.1)));
+    let material3 = Arc::new(Metal::new(Colour::new(0.7, 0.6, 0.5), 0.));
+
+    // Just the three big spheres, no random field, no small "invisible" lights.
+    world.add(Sphere::new(Point3::new(0., 1., 0.), 1., material1));
+    world.add(Sphere::new(Point3::new(-4., 1., 0.), 1., material2));
+    world.add(Sphere::new(Point3::new(4., 1., 0.), 1., material3));
+
+    let light_material = Arc::new(DiffuseLight::new_with_colour(Colour::new(4., 4., 4.)));
+    world.add(Sphere::new(
+        Point3::new(0., 8., 0.),
+        1.,
+        light_material.clone(),
+    ));
+    lights.add(Sphere::new(Point3::new(0., 8., 0.), 1., light_material));
+
+    let lookfrom = Point3::new(10.0, 5.0, 10.0);
+    let lookat = Point3::new(0.0, 0.0, 0.0);
+    let cam = CameraBuilder::new()
+        .with_lookfrom(lookfrom)
+        .with_lookat(lookat)
+        .with_focus_dist((lookfrom - lookat).length())
+        .with_vfov(40.)
+        .with_background(Colour::new(0., 0., 0.));
+
+    (
+        Box::new(BoundedVolumeHierarchy::from(world)),
+        Box::new(lights),
+        cam,
+    )
+}
+
+/// Isolates the ground plane: nothing else in the scene but a single
+/// overhead light. If the plane still doesn't show up, it's a hard
+/// bug in `bounded_hit`/`AABBox` intersection, not noise.
+#[must_use]
+pub fn plane_only() -> (
+    Box<dyn BoundedHittable>,
+    Box<dyn BoundedHittable>,
+    CameraBuilder,
+) {
+    let mut world = HittableList::default();
+    let mut lights = HittableList::default();
+
+    let ground_material = Arc::new(Lambertian::new_with_colour(Colour::new(0.9, 0.2, 0.2)));
+    world.add(Plane::new(
+        Point3::new(0., 0., 0.),
+        Vec3::new(0., 1., 0.),
+        ground_material,
+    ));
+
+    let light_material = Arc::new(DiffuseLight::new_with_colour(Colour::new(6., 6., 6.)));
+    world.add(Sphere::new(
+        Point3::new(0., 5., 0.),
+        1.,
+        light_material.clone(),
+    ));
+    lights.add(Sphere::new(Point3::new(0., 5., 0.), 1., light_material));
+
+    let cam = CameraBuilder::new()
+        .with_lookfrom(Point3::new(5., 3., 5.))
+        .with_lookat(Point3::new(0., 0., 0.))
+        .with_focus_dist(7.)
+        .with_vfov(40.)
+        .with_background(Colour::new(0., 0., 0.));
+
+    (Box::new(world), Box::new(lights), cam)
 }
