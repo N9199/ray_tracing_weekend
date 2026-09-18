@@ -6,7 +6,7 @@ edition = "2024"
 [dependencies]
 
 [dev-dependencies]
-geometry = {path = "../geometry"}
+geometry = {path = "../geometry", features = ["test-utils"]}
 shared = {path = "../shared"}
 scenes = {path = "../scenes"}
 
