@@ -98,25 +98,42 @@ impl Hittable for Plane {
             HitRecord::new(r, t, self.normal, u, v, self.mat_ptr.as_ref())
         })
     }
+
+    fn pdf_value(&self, _origin: Point3, _direction: Vec3) -> f64 {
+        debug_assert!(
+            false,
+            "{}: not a valid NEE light target; do not add to `lights`",
+            std::any::type_name::<Self>()
+        );
+        0.
+    }
+
+    fn random(&self, _origin: Point3, _rng: &mut dyn rand::RngCore) -> Vec3 {
+        unimplemented!(
+            "{}: not a valid NEE light target; do not add to `lights`",
+            std::any::type_name::<Self>()
+        );
+    }
 }
 
 impl Bounded for Plane {
     fn get_aabbox(&self) -> AABBox {
+        const DELTA: f64 = 0.0001;
         let (x_min, x_max) =
             if self.normal.z.abs() < f64::EPSILON && self.normal.y.abs() < f64::EPSILON {
-                (0., 0.)
+                (self.point.x - DELTA, self.point.x + DELTA)
             } else {
                 (-f64::INFINITY, f64::INFINITY)
             };
         let (y_min, y_max) =
             if self.normal.x.abs() < f64::EPSILON && self.normal.z.abs() < f64::EPSILON {
-                (0., 0.)
+                (self.point.y - DELTA, self.point.y + DELTA)
             } else {
                 (-f64::INFINITY, f64::INFINITY)
             };
         let (z_min, z_max) =
             if self.normal.x.abs() < f64::EPSILON && self.normal.y.abs() < f64::EPSILON {
-                (0., 0.)
+                (self.point.z - DELTA, self.point.z + DELTA)
             } else {
                 (-f64::INFINITY, f64::INFINITY)
             };

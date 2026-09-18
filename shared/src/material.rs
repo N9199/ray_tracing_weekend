@@ -2,6 +2,7 @@
 use std::sync::atomic::AtomicU32;
 use std::{f64::consts::PI, fmt::Debug, sync::Arc};
 
+use bumpalo::Bump;
 use rand::{distributions::Open01, Rng};
 
 use geometry::vec3::Point3;
@@ -18,24 +19,25 @@ use crate::{
 };
 
 #[derive(Debug)]
-pub enum ScatterReflect {
+pub enum ScatterReflect<'a> {
     Reflect(Ray),
-    Scatter(Box<dyn Pdf>),
+    Scatter(Box<dyn Pdf, &'a Bump>),
 }
 
 #[derive(Debug)]
-pub struct ScatterRecord {
+pub struct ScatterRecord<'a> {
     pub attenuation: Colour,
-    pub scatter_reflect: ScatterReflect,
+    pub scatter_reflect: ScatterReflect<'a>,
 }
 
 pub trait Material: Sync + Send + Debug {
-    fn scatter(
+    fn scatter<'bump>(
         &self,
         _ray_in: &Ray,
         _rec: &HitRecord<'_>,
         _rng: &mut dyn rand::RngCore,
-    ) -> Option<ScatterRecord> {
+        _bump: &'bump Bump,
+    ) -> Option<ScatterRecord<'bump>> {
         None
     }
 
@@ -56,6 +58,7 @@ mod dyn_util {
     mod transmute {
         use std::{fmt::Debug, mem::MaybeUninit, ops::Deref, ptr::drop_in_place};
 
+        use bumpalo::Bump;
         use geometry::vec3::Point3;
 
         use crate::{colour::Colour, hittable::HitRecord, ray::Ray};
@@ -181,18 +184,19 @@ mod dyn_util {
 
         impl Material for DynMaterial {
             #[inline]
-            fn scatter(
+            fn scatter<'bump>(
                 &self,
                 ray_in: &Ray,
                 rec: &HitRecord<'_>,
                 rng: &mut dyn rand::RngCore,
-            ) -> Option<ScatterRecord> {
+                bump: &'bump Bump,
+            ) -> Option<ScatterRecord<'bump>> {
                 unsafe {
                     (self.into_material.into_material)(std::ptr::from_ref(&self.bytes))
                         .as_ref()
                         .unwrap()
                 }
-                .scatter(ray_in, rec, rng)
+                .scatter(ray_in, rec, rng, bump)
             }
 
             #[inline]
@@ -220,6 +224,7 @@ mod dyn_util {
     mod dyn_enum {
         use std::sync::Arc;
 
+        use bumpalo::Bump;
         use geometry::vec3::Point3;
 
         use crate::{colour::Colour, hittable::HitRecord, material::ScatterRecord, ray::Ray};
@@ -234,7 +239,8 @@ mod dyn_util {
 
         impl DynMaterial {
             #[must_use]
-            pub const fn as_bytes(&self) -> &[u8] {
+            #[cfg(feature = "debug")]
+            pub(crate) const fn as_bytes(&self) -> &[u8] {
                 const SIZE: usize = std::mem::size_of::<DynMaterial>();
                 let ptr = std::ptr::from_ref::<DynMaterial>(self).cast();
                 unsafe { std::slice::from_raw_parts(ptr, SIZE) }
@@ -266,15 +272,16 @@ mod dyn_util {
         }
 
         impl Material for DynMaterial {
-            fn scatter(
+            fn scatter<'bump>(
                 &self,
                 ray_in: &Ray,
                 rec: &HitRecord<'_>,
                 rng: &mut dyn rand::RngCore,
-            ) -> Option<ScatterRecord> {
+                bump: &'bump Bump,
+            ) -> Option<ScatterRecord<'bump>> {
                 match self {
-                    DynMaterial::Ref(material) => material.scatter(ray_in, rec, rng),
-                    DynMaterial::Arc(material) => material.scatter(ray_in, rec, rng),
+                    DynMaterial::Ref(material) => material.scatter(ray_in, rec, rng, bump),
+                    DynMaterial::Arc(material) => material.scatter(ray_in, rec, rng, bump),
                 }
             }
 
@@ -295,19 +302,6 @@ mod dyn_util {
 
         impl AsRef<dyn Material> for DynMaterial {
             fn as_ref<'a>(&'a self) -> &'a (dyn Material + 'static) {
-                #[cfg(feature = "debug")]
-                {
-                    dbg!(std::any::type_name::<Self>());
-                    dbg!(std::alloc::Layout::new::<Self>());
-                    dbg!(self as *const _);
-                    dbg!(self.as_bytes());
-                    dbg!(std::mem::discriminant(self));
-                    dbg!(&self);
-                    // if let DynMaterial::Arc(mat) = &self {
-                    //     dbg!(Arc::strong_count(&mat));
-                    //     dbg!(Arc::weak_count(&mat));
-                    // }
-                }
                 match self {
                     DynMaterial::Ref(material) => *material,
                     DynMaterial::Arc(material) => material.as_ref(),
@@ -358,17 +352,21 @@ impl Lambertian {
 }
 
 impl Material for Lambertian {
-    fn scatter(
+    fn scatter<'bump>(
         &self,
         _ray_in: &Ray,
         rec: &HitRecord<'_>,
         _rng: &mut dyn rand::RngCore,
-    ) -> Option<ScatterRecord> {
+        bump: &'bump Bump,
+    ) -> Option<ScatterRecord<'bump>> {
         Some(ScatterRecord {
             attenuation: self
                 .texture
                 .get_colour(rec.get_u(), rec.get_v(), rec.get_p()),
-            scatter_reflect: ScatterReflect::Scatter(Box::new(CosinePdf::new(rec.get_normal()))),
+            scatter_reflect: ScatterReflect::Scatter(Box::new_in(
+                CosinePdf::new(rec.get_normal()),
+                bump,
+            )),
         })
     }
 
@@ -409,12 +407,13 @@ impl Metal {
 }
 
 impl Material for Metal {
-    fn scatter(
+    fn scatter<'bump>(
         &self,
         ray_in: &Ray,
         rec: &HitRecord<'_>,
         rng: &mut dyn rand::RngCore,
-    ) -> Option<ScatterRecord> {
+        _bump: &'bump Bump,
+    ) -> Option<ScatterRecord<'bump>> {
         let reflected = ray_in.get_direction().normalize().reflect(rec.get_normal());
         let reflected = Ray::new(rec.get_p(), reflected + rng.sample(UnitSphere) * self.fuzz);
         (reflected.get_direction().dot(rec.get_normal()) > 0.).then_some(ScatterRecord {
@@ -460,12 +459,13 @@ impl Dielectric {
 }
 
 impl Material for Dielectric {
-    fn scatter(
+    fn scatter<'bump>(
         &self,
         ray_in: &Ray,
         rec: &HitRecord<'_>,
         rng: &mut dyn rand::RngCore,
-    ) -> Option<ScatterRecord> {
+        _bump: &'bump Bump,
+    ) -> Option<ScatterRecord<'bump>> {
         let refraction_ratio = if rec.is_front_face() {
             self.index_of_refraction.recip()
         } else {
@@ -539,17 +539,18 @@ impl Isotropic {
 }
 
 impl Material for Isotropic {
-    fn scatter(
+    fn scatter<'bump>(
         &self,
         _ray_in: &Ray,
         rec: &HitRecord<'_>,
         _rng: &mut dyn rand::RngCore,
-    ) -> Option<ScatterRecord> {
+        bump: &'bump Bump,
+    ) -> Option<ScatterRecord<'bump>> {
         Some(ScatterRecord {
             attenuation: self
                 .texture
                 .get_colour(rec.get_u(), rec.get_v(), rec.get_p()),
-            scatter_reflect: ScatterReflect::Scatter(Box::new(SpherePdf)),
+            scatter_reflect: ScatterReflect::Scatter(Box::new_in(SpherePdf, bump)),
         })
     }
 
@@ -629,7 +630,8 @@ mod tests {
             let record = material_record(material, &ray);
             let mut rng = SmallRng::seed_from_u64(0x0D3F_A017);
 
-            assert!(material.scatter(&ray, &record, &mut rng).is_none());
+            let bump = bumpalo::Bump::new();
+            assert!(material.scatter(&ray, &record, &mut rng, &bump).is_none());
             assert_colour(
                 material.emitted(0.23, 0.71, record.get_p()),
                 Colour::new(0., 0., 0.),
@@ -646,7 +648,8 @@ mod tests {
         assert!(record.is_front_face());
         assert_point(record.get_p(), Point3::new(2., 0., -1.), TOLERANCE);
         let mut rng = SmallRng::seed_from_u64(0x1A2B_3C4D);
-        let scatter = material.scatter(&ray, &record, &mut rng).unwrap();
+        let bump = bumpalo::Bump::new();
+        let scatter = material.scatter(&ray, &record, &mut rng, &bump).unwrap();
         assert_colour(scatter.attenuation, Colour::new(2.23, 0.71, -1.));
 
         let ScatterReflect::Scatter(pdf) = scatter.scatter_reflect else {
@@ -679,7 +682,8 @@ mod tests {
         let metal = Metal::new(albedo, 0.);
         let record = HitRecord::new(&ray, 1., Vec3::new(0., 0., 1.), 0.2, 0.7, &metal);
         let mut rng = SmallRng::seed_from_u64(0x5EED);
-        let scatter = metal.scatter(&ray, &record, &mut rng).unwrap();
+        let bump = bumpalo::Bump::new();
+        let scatter = metal.scatter(&ray, &record, &mut rng, &bump).unwrap();
         assert_colour(scatter.attenuation, albedo);
         let ScatterReflect::Reflect(reflected) = scatter.scatter_reflect else {
             panic!("Metal should return a reflected ray");
@@ -690,8 +694,9 @@ mod tests {
         let rough_metal = Metal::new(albedo, 1000.);
         let rough_record = HitRecord::new(&ray, 1., Vec3::new(0., 0., 1.), 0.2, 0.7, &rough_metal);
         let mut rough_rng = SmallRng::seed_from_u64(0x0BAD_5EED);
+        let bump = bumpalo::Bump::new();
         assert!(rough_metal
-            .scatter(&ray, &rough_record, &mut rough_rng)
+            .scatter(&ray, &rough_record, &mut rough_rng, &bump)
             .is_none());
     }
 
@@ -704,7 +709,10 @@ mod tests {
 
         let reflect_seed = seed_for_open01(|value| value < 0.04);
         let mut reflect_rng = SmallRng::seed_from_u64(reflect_seed);
-        let reflected = material.scatter(&ray, &record, &mut reflect_rng).unwrap();
+        let bump = bumpalo::Bump::new();
+        let reflected = material
+            .scatter(&ray, &record, &mut reflect_rng, &bump)
+            .unwrap();
         assert_colour(reflected.attenuation, Colour::new(1., 1., 1.));
         let ScatterReflect::Reflect(reflected_ray) = reflected.scatter_reflect else {
             panic!("Dielectric should return a reflected ray record");
@@ -717,7 +725,9 @@ mod tests {
 
         let refract_seed = seed_for_open01(|value| value > 0.04);
         let mut refract_rng = SmallRng::seed_from_u64(refract_seed);
-        let refracted = material.scatter(&ray, &record, &mut refract_rng).unwrap();
+        let refracted = material
+            .scatter(&ray, &record, &mut refract_rng, &bump)
+            .unwrap();
         let ScatterReflect::Reflect(refracted_ray) = refracted.scatter_reflect else {
             panic!("Dielectric should return a reflected-ray record");
         };
@@ -743,7 +753,8 @@ mod tests {
         let record = HitRecord::new(&ray, 1., Vec3::new(0., 0., 1.), 0.2, 0.7, &material);
         assert!(!record.is_front_face());
         let mut rng = SmallRng::seed_from_u64(0x71A1);
-        let scatter = material.scatter(&ray, &record, &mut rng).unwrap();
+        let bump = bumpalo::Bump::new();
+        let scatter = material.scatter(&ray, &record, &mut rng, &bump).unwrap();
         let ScatterReflect::Reflect(reflected) = scatter.scatter_reflect else {
             panic!("Total internal reflection should return a reflected ray");
         };
@@ -756,6 +767,7 @@ mod tests {
 
     #[test]
     fn diffuse_light_emits_its_texture_and_isotropic_scatter_contract_is_constant() {
+        let bump = bumpalo::Bump::new();
         let light = DiffuseLight::new(Arc::new(UvPointTexture));
         let ray = Ray::new(Point3::new(1., 2., 3.), Vec3::new(0.5, -1., -2.));
         let light_record = material_record(&light, &ray);
@@ -764,12 +776,15 @@ mod tests {
             Colour::new(2.23, 0.71, -1.),
         );
         let mut rng = SmallRng::seed_from_u64(0xF1A7);
-        assert!(light.scatter(&ray, &light_record, &mut rng).is_none());
+        assert!(light
+            .scatter(&ray, &light_record, &mut rng, &bump)
+            .is_none());
         assert_close(light.scattering_pdf(&ray, &light_record, &ray), 0.);
 
         let isotropic = Isotropic::new(Arc::new(UvPointTexture));
         let record = material_record(&isotropic, &ray);
-        let scatter = isotropic.scatter(&ray, &record, &mut rng).unwrap();
+        let bump = bumpalo::Bump::new();
+        let scatter = isotropic.scatter(&ray, &record, &mut rng, &bump).unwrap();
         assert_colour(scatter.attenuation, Colour::new(2.23, 0.71, -1.));
         let ScatterReflect::Scatter(pdf) = scatter.scatter_reflect else {
             panic!("Isotropic should return a scattering PDF");

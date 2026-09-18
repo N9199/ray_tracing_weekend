@@ -13,6 +13,7 @@ debug = ["geometry/debug", "hit_counters"]
 
 [dependencies]
 arrayvec = "0.7.6"
+bumpalo = {workspace = true}
 crossbeam = "0.8.2"
 itertools = "0.10.5"
 kdam = {version = "0.6.4", features = ["rayon"]}

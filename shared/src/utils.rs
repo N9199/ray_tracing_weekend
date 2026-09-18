@@ -151,6 +151,7 @@ pub mod random_utils {
     pub struct CosineWeightedHemisphere;
 
     impl Distribution<Vec3> for CosineWeightedHemisphere {
+        // TODO use Malley's method
         #[inline]
         fn sample<R: rand::Rng + ?Sized>(&self, rng: &mut R) -> Vec3 {
             let r1 = rng.sample::<f64, _>(Standard);
