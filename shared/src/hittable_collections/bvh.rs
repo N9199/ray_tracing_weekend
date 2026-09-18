@@ -3,8 +3,6 @@ pub use plane_divided::BoundedVolumeHierarchy;
 mod plane_divided {
     use std::ops::RangeInclusive;
 
-    #[cfg(feature = "euclid")]
-    use geometry::aabbox::Box3DExt as _;
     use geometry::{
         aabbox::AABBox,
         aaplane::AAPlane,
@@ -30,6 +28,7 @@ mod plane_divided {
             right: Box<BoundedVolumeHierarchy>,
             len: usize,
             dividing_plane: AAPlane,
+            aabbox: Option<AABBox>,
         },
     }
 
@@ -85,7 +84,7 @@ mod plane_divided {
                     .nth(index)
                     .unwrap()
                     .random(origin, rng),
-                BoundedVolumeHierarchy::Node { left, right, .. } => match left.len().cmp(&index) {
+                BoundedVolumeHierarchy::Node { left, right, .. } => match index.cmp(&left.len()) {
                     std::cmp::Ordering::Less => left.aux_random(index, origin, rng),
                     std::cmp::Ordering::Equal | std::cmp::Ordering::Greater => {
                         right.aux_random(index - left.len(), origin, rng)
@@ -112,16 +111,17 @@ mod plane_divided {
                 Self::Leaf(value)
             } else {
                 let len = value.len();
+                let aabbox = Some(value.get_aabbox());
                 let (left, right, dividing_plane) = value.best_split();
                 // if len == left.len() {
                 //     // dbg!(plane);
                 //     // dbg!("left");
-                //     left.iter_bounded().for_each(|aabox| {
-                //         // dbg!(aabox);
+                //     left.iter_bounded().for_each(|aabbox| {
+                //         // dbg!(aabbox);
                 //     });
                 //     // dbg!("right");
-                //     right.iter_bounded().for_each(|aabox| {
-                //         // dbg!(aabox);
+                //     right.iter_bounded().for_each(|aabbox| {
+                //         // dbg!(aabbox);
                 //     });
                 // }
                 debug_assert_ne!(len, left.len());
@@ -139,6 +139,7 @@ mod plane_divided {
                         right,
                         len,
                         dividing_plane,
+                        aabbox,
                     }
                 }
             }
@@ -149,7 +150,7 @@ mod plane_divided {
         fn get_aabbox(&self) -> AABBox {
             match self {
                 Self::Leaf(value) => value.get_aabbox(),
-                Self::Node { left, right, .. } => left.get_aabbox().enclose(&right.get_aabbox()),
+                Self::Node { aabbox, .. } => aabbox.unwrap(),
             }
         }
 

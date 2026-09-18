@@ -18,7 +18,11 @@ use shared::{
     texture::{CheckerTexture, NoiseTexture},
     utils::random_utils,
 };
-type Output = (
+mod scene_config;
+
+pub use scene_config::SceneConfig;
+
+pub type Output = (
     Box<dyn BoundedHittable>,
     Box<dyn BoundedHittable>,
     CameraBuilder,
