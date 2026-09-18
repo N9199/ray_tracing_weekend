@@ -165,3 +165,49 @@ pub mod random_utils {
         }
     }
 }
+
+#[cfg(test)]
+mod tests {
+    use geometry::test_utils::{assert_close, assert_vec};
+    use rand::{rngs::SmallRng, Rng as _, SeedableRng as _};
+
+    use crate::utils::random_utils::{CosineWeightedHemisphere, UnitSphere};
+
+    const TOLERANCE: f64 = 1e-10;
+    const SEED: u64 = 0x000C_051E;
+    const SAMPLE_COUNT: usize = 10_000;
+
+    #[test]
+    fn unit_sphere_sampler_is_reproducible_and_returns_points_inside_the_unit_ball() {
+        let mut first_rng = SmallRng::seed_from_u64(SEED);
+        let mut second_rng = SmallRng::seed_from_u64(SEED);
+        for _ in 0..128 {
+            let first = first_rng.sample(UnitSphere);
+            let second = second_rng.sample(UnitSphere);
+            assert_vec(first, second, TOLERANCE);
+            assert!(first.x.is_finite() && first.y.is_finite() && first.z.is_finite());
+            assert!(first.square_length() < 1., "generated vector: {first:?}");
+        }
+    }
+
+    #[test]
+    fn cosine_hemisphere_sampler_is_reproducible_unit_length_and_cosine_weighted() {
+        let mut first_rng = SmallRng::seed_from_u64(SEED);
+        let mut second_rng = SmallRng::seed_from_u64(SEED);
+        let mut sum_local_z = 0.;
+        for _ in 0..SAMPLE_COUNT {
+            let first = first_rng.sample(CosineWeightedHemisphere);
+            let second = second_rng.sample(CosineWeightedHemisphere);
+            assert_vec(first, second, TOLERANCE);
+            assert!(first.x.is_finite() && first.y.is_finite() && first.z.is_finite());
+            assert_close(first.square_length(), 1., TOLERANCE);
+            assert!(first.z >= 0.);
+            sum_local_z += first.z;
+        }
+        let mean_local_z = sum_local_z / SAMPLE_COUNT as f64;
+        assert!(
+            (mean_local_z - 2. / 3.).abs() < 0.02,
+            "seed {SEED:#x}, {SAMPLE_COUNT} samples: mean local-Z {mean_local_z}, expected 2/3"
+        );
+    }
+}

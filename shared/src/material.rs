@@ -561,3 +561,239 @@ impl Material for Isotropic {
         1. / (4. * PI)
     }
 }
+
+#[cfg(test)]
+mod tests {
+    use std::{f64::consts::PI, sync::Arc};
+
+    use geometry::{
+        test_utils::{assert_close as assert_close_with_tolerance, assert_point, assert_vec},
+        vec3::{Point3, Vec3},
+    };
+
+    use rand::{distributions::Open01, rngs::SmallRng, Rng as _, SeedableRng as _};
+
+    use crate::{
+        colour::Colour,
+        hittable::HitRecord,
+        material::{
+            Dielectric, DiffuseLight, Invisible, Isotropic, Lambertian, Material, Metal,
+            ScatterReflect,
+        },
+        ray::Ray,
+        texture::Texture,
+    };
+
+    const TOLERANCE: f64 = 1e-10;
+
+    #[derive(Debug)]
+    struct DefaultMaterial;
+
+    impl Material for DefaultMaterial {}
+
+    #[derive(Debug)]
+    struct UvPointTexture;
+
+    impl Texture for UvPointTexture {
+        fn get_colour(&self, u: f64, v: f64, point: Point3) -> Colour {
+            Colour::new(u + point.x, v + point.y, point.z)
+        }
+    }
+
+    fn assert_colour(actual: Colour, expected: Colour) {
+        assert_vec(actual.into_inner(), expected.into_inner(), TOLERANCE);
+    }
+
+    fn assert_close(actual: f64, expected: f64) {
+        assert_close_with_tolerance(actual, expected, TOLERANCE);
+    }
+
+    fn material_record<'a>(material: &'a dyn Material, ray: &Ray) -> HitRecord<'a> {
+        HitRecord::new(ray, 2., Vec3::new(0., 0., 1.), 0.23, 0.71, material)
+    }
+
+    fn seed_for_open01(predicate: impl Fn(f64) -> bool) -> u64 {
+        (0..10_000)
+            .find(|seed| {
+                let mut rng = SmallRng::seed_from_u64(*seed);
+                predicate(rng.sample(Open01))
+            })
+            .expect("a seed satisfying the Open01 condition should be found")
+    }
+
+    #[test]
+    fn default_material_and_invisible_have_no_scatter_emission_or_scattering_density() {
+        let material = DefaultMaterial;
+        let ray = Ray::new(Point3::new(1., 2., 3.), Vec3::new(0., 0., -1.));
+        for material in [&material as &dyn Material, &Invisible] {
+            let record = material_record(material, &ray);
+            let mut rng = SmallRng::seed_from_u64(0x0D3F_A017);
+
+            assert!(material.scatter(&ray, &record, &mut rng).is_none());
+            assert_colour(
+                material.emitted(0.23, 0.71, record.get_p()),
+                Colour::new(0., 0., 0.),
+            );
+            assert_close(material.scattering_pdf(&ray, &record, &ray), 0.);
+        }
+    }
+
+    #[test]
+    fn lambertian_forwards_hit_texture_coordinates_and_reports_cosine_density() {
+        let material = Lambertian::new(Arc::new(UvPointTexture));
+        let ray = Ray::new(Point3::new(1., 2., 3.), Vec3::new(0.5, -1., -2.));
+        let record = material_record(&material, &ray);
+        assert!(record.is_front_face());
+        assert_point(record.get_p(), Point3::new(2., 0., -1.), TOLERANCE);
+        let mut rng = SmallRng::seed_from_u64(0x1A2B_3C4D);
+        let scatter = material.scatter(&ray, &record, &mut rng).unwrap();
+        assert_colour(scatter.attenuation, Colour::new(2.23, 0.71, -1.));
+
+        let ScatterReflect::Scatter(pdf) = scatter.scatter_reflect else {
+            panic!("Lambertian should return a scattering PDF");
+        };
+        let normal = Vec3::new(0., 0., 1.);
+        let tangent = Vec3::new(3., 0., 0.);
+        let below = Vec3::new(0., 0., -2.);
+        assert_close(pdf.value(&normal), 1. / PI);
+        assert_close(pdf.value(&tangent), 0.);
+        assert_close(pdf.value(&below), 0.);
+        assert_close(
+            material.scattering_pdf(&ray, &record, &Ray::new(record.get_p(), normal * 5.)),
+            1. / PI,
+        );
+        assert_close(
+            material.scattering_pdf(&ray, &record, &Ray::new(record.get_p(), tangent)),
+            0.,
+        );
+        assert_close(
+            material.scattering_pdf(&ray, &record, &Ray::new(record.get_p(), below)),
+            0.,
+        );
+    }
+
+    #[test]
+    fn zero_fuzz_metal_reflects_exactly_and_high_fuzz_can_be_rejected() {
+        let albedo = Colour::new(0.2, 0.4, 0.8);
+        let ray = Ray::new(Point3::new(0., 0., 1.), Vec3::new(0., 0., -2.));
+        let metal = Metal::new(albedo, 0.);
+        let record = HitRecord::new(&ray, 1., Vec3::new(0., 0., 1.), 0.2, 0.7, &metal);
+        let mut rng = SmallRng::seed_from_u64(0x5EED);
+        let scatter = metal.scatter(&ray, &record, &mut rng).unwrap();
+        assert_colour(scatter.attenuation, albedo);
+        let ScatterReflect::Reflect(reflected) = scatter.scatter_reflect else {
+            panic!("Metal should return a reflected ray");
+        };
+        assert_point(reflected.get_origin(), record.get_p(), TOLERANCE);
+        assert_vec(reflected.get_direction(), Vec3::new(0., 0., 1.), TOLERANCE);
+
+        let rough_metal = Metal::new(albedo, 1000.);
+        let rough_record = HitRecord::new(&ray, 1., Vec3::new(0., 0., 1.), 0.2, 0.7, &rough_metal);
+        let mut rough_rng = SmallRng::seed_from_u64(0x0BAD_5EED);
+        assert!(rough_metal
+            .scatter(&ray, &rough_record, &mut rough_rng)
+            .is_none());
+    }
+
+    #[test]
+    fn dielectric_seeded_normal_incidence_exercises_reflection_and_refraction() {
+        let material = Dielectric::new(1.5);
+        let ray = Ray::new(Point3::new(0., 0., 1.), Vec3::new(0., 0., -2.));
+        let record = material_record(&material, &ray);
+        assert!(record.is_front_face());
+
+        let reflect_seed = seed_for_open01(|value| value < 0.04);
+        let mut reflect_rng = SmallRng::seed_from_u64(reflect_seed);
+        let reflected = material.scatter(&ray, &record, &mut reflect_rng).unwrap();
+        assert_colour(reflected.attenuation, Colour::new(1., 1., 1.));
+        let ScatterReflect::Reflect(reflected_ray) = reflected.scatter_reflect else {
+            panic!("Dielectric should return a reflected ray record");
+        };
+        assert_vec(
+            reflected_ray.get_direction(),
+            Vec3::new(0., 0., 1.),
+            TOLERANCE,
+        );
+
+        let refract_seed = seed_for_open01(|value| value > 0.04);
+        let mut refract_rng = SmallRng::seed_from_u64(refract_seed);
+        let refracted = material.scatter(&ray, &record, &mut refract_rng).unwrap();
+        let ScatterReflect::Reflect(refracted_ray) = refracted.scatter_reflect else {
+            panic!("Dielectric should return a reflected-ray record");
+        };
+        assert_vec(
+            refracted_ray.get_direction(),
+            Vec3::new(0., 0., -1.),
+            TOLERANCE,
+        );
+        assert!(refracted_ray
+            .get_direction()
+            .to_array()
+            .into_iter()
+            .all(f64::is_finite));
+    }
+
+    #[test]
+    fn dielectric_back_face_total_internal_reflection_is_forced() {
+        let material = Dielectric::new(1.5);
+        let ray = Ray::new(
+            Point3::new(0., 0., 0.),
+            Vec3::new(3.0_f64.sqrt() / 2., 0., 0.5),
+        );
+        let record = HitRecord::new(&ray, 1., Vec3::new(0., 0., 1.), 0.2, 0.7, &material);
+        assert!(!record.is_front_face());
+        let mut rng = SmallRng::seed_from_u64(0x71A1);
+        let scatter = material.scatter(&ray, &record, &mut rng).unwrap();
+        let ScatterReflect::Reflect(reflected) = scatter.scatter_reflect else {
+            panic!("Total internal reflection should return a reflected ray");
+        };
+        assert_vec(
+            reflected.get_direction(),
+            Vec3::new(3.0_f64.sqrt() / 2., 0., -0.5),
+            TOLERANCE,
+        );
+    }
+
+    #[test]
+    fn diffuse_light_emits_its_texture_and_isotropic_scatter_contract_is_constant() {
+        let light = DiffuseLight::new(Arc::new(UvPointTexture));
+        let ray = Ray::new(Point3::new(1., 2., 3.), Vec3::new(0.5, -1., -2.));
+        let light_record = material_record(&light, &ray);
+        assert_colour(
+            light.emitted(0.23, 0.71, light_record.get_p()),
+            Colour::new(2.23, 0.71, -1.),
+        );
+        let mut rng = SmallRng::seed_from_u64(0xF1A7);
+        assert!(light.scatter(&ray, &light_record, &mut rng).is_none());
+        assert_close(light.scattering_pdf(&ray, &light_record, &ray), 0.);
+
+        let isotropic = Isotropic::new(Arc::new(UvPointTexture));
+        let record = material_record(&isotropic, &ray);
+        let scatter = isotropic.scatter(&ray, &record, &mut rng).unwrap();
+        assert_colour(scatter.attenuation, Colour::new(2.23, 0.71, -1.));
+        let ScatterReflect::Scatter(pdf) = scatter.scatter_reflect else {
+            panic!("Isotropic should return a scattering PDF");
+        };
+        assert_close(pdf.value(&Vec3::new(1., 2., 3.)), 1. / (4. * PI));
+        assert_close(
+            isotropic.scattering_pdf(
+                &ray,
+                &record,
+                &Ray::new(record.get_p(), Vec3::new(-4., 1., 0.5)),
+            ),
+            1. / (4. * PI),
+        );
+        assert_close(
+            isotropic.scattering_pdf(
+                &ray,
+                &record,
+                &Ray::new(record.get_p(), Vec3::new(0., 0., -9.)),
+            ),
+            1. / (4. * PI),
+        );
+        assert_colour(
+            isotropic.emitted(0.23, 0.71, record.get_p()),
+            Colour::new(0., 0., 0.),
+        );
+    }
+}

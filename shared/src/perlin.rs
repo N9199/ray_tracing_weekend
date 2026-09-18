@@ -29,6 +29,7 @@ impl Perlin {
 
     fn perlin_generate_perm() -> Box<[u8; Self::POINT_COUNT]> {
         let mut out = Box::new([0; Self::POINT_COUNT]);
+        #[allow(clippy::cast_possible_truncation)]
         out.iter_mut().enumerate().for_each(|(i, v)| *v = i as _);
         Self::randomize_permutation(&mut out);
         out
@@ -74,6 +75,7 @@ impl Perlin {
 
         let mut c = [[[Vec3::default(); 2]; 2]; 2];
 
+        #[allow(clippy::cast_sign_loss, clippy::cast_possible_truncation)]
         iproduct!((0..2), (0..2), (0..2)).for_each(|(di, dj, dk)| {
             c[di][dj][dk] = self.rand_vec[self.perm_x
                 [i.add(di as f64).rem_euclid(Self::POINT_COUNT as f64) as usize]
@@ -98,6 +100,7 @@ impl Perlin {
         accum
     }
 
+    #[allow(clippy::many_single_char_names)]
     #[must_use]
     pub fn perlin_interpolation(c: [[[Vec3; 2]; 2]; 2], u: f64, v: f64, w: f64) -> f64 {
         iproduct!((0..2), (0..2), (0..2))
@@ -126,5 +129,80 @@ impl Perlin {
                     * temp
             })
             .sum()
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use geometry::{
+        test_utils::assert_close,
+        vec3::{Point3, Vec3},
+    };
+
+    use crate::perlin::Perlin;
+
+    const TOLERANCE: f64 = 1e-12;
+
+    #[test]
+    fn trilinear_interpolation_selects_corner_values_and_matches_interior_weights() {
+        let corners = std::array::from_fn(|i| {
+            std::array::from_fn(|j| std::array::from_fn(|k| (i + 2 * j + 4 * k) as f64))
+        });
+        assert_close(
+            Perlin::trilinear_interpolation(corners, 0., 0., 0.),
+            0.,
+            TOLERANCE,
+        );
+        assert_close(
+            Perlin::trilinear_interpolation(corners, 1., 1., 1.),
+            7.,
+            TOLERANCE,
+        );
+        assert_close(
+            Perlin::trilinear_interpolation(corners, 0.25, 0.5, 0.75),
+            0.25 + 2. * 0.5 + 4. * 0.75,
+            TOLERANCE,
+        );
+    }
+
+    #[test]
+    fn perlin_interpolation_has_hand_computed_corner_and_interior_values() {
+        let mut gradients = [[[Vec3::new(0., 0., 0.); 2]; 2]; 2];
+        gradients[0][0][0] = Vec3::new(1., 2., 3.);
+        gradients[1][1][1] = Vec3::new(2., 3., 4.);
+
+        assert_close(
+            Perlin::perlin_interpolation(gradients, 0., 0., 0.),
+            0.,
+            TOLERANCE,
+        );
+        assert_close(
+            Perlin::perlin_interpolation(gradients, 1., 1., 1.),
+            0.,
+            TOLERANCE,
+        );
+        assert_close(
+            Perlin::perlin_interpolation(gradients, 0.25, 0.5, 0.75),
+            -0.046_875,
+            TOLERANCE,
+        );
+    }
+
+    #[test]
+    fn perlin_noise_and_turb_are_finite_repeatable_and_clone_preserves_tables() {
+        let perlin = Perlin::new();
+        let cloned = perlin.clone();
+        let point = Point3::new(-12.4, 0.23, 9.71);
+
+        assert_eq!(perlin.turb(point, 0), 0.);
+        for sample_point in [point, Point3::new(0.5, -1.25, 256.75)] {
+            let noise = perlin.noise(&sample_point);
+            let turbulence = perlin.turb(sample_point, 7);
+            assert!(noise.is_finite());
+            assert!(turbulence.is_finite());
+            assert_eq!(noise, perlin.noise(&sample_point));
+            assert_eq!(noise, cloned.noise(&sample_point));
+            assert_eq!(turbulence, cloned.turb(sample_point, 7));
+        }
     }
 }
