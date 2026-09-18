@@ -26,23 +26,28 @@ pub struct Sphere {
     center: Point3,
     radius: f64,
     mat_ptr: DynMaterial,
-    aabox: AABBox,
+    aabbox: AABBox,
 }
 
 impl Sphere {
     /// # Panics
     /// If `T` fails to be converted into `DynMaterial` this function will panic
+    /// If `radius` is not finite or not positive, this function will panic.
     #[must_use]
     pub fn new<T>(center: Point3, radius: f64, mat_ptr: T) -> Self
     where
         T: TryInto<DynMaterial>,
         <T as TryInto<DynMaterial>>::Error: Debug,
     {
+        assert!(
+            radius.is_finite() && radius.is_sign_positive(),
+            "radius must be finite and positive"
+        );
         Sphere {
             center,
             radius,
             mat_ptr: mat_ptr.try_into().unwrap(),
-            aabox: AABBox::new(
+            aabbox: AABBox::new(
                 Point3::new(center.x - radius, center.y - radius, center.z - radius),
                 Point3::new(center.x + radius, center.y + radius, center.z + radius),
             ),
@@ -104,10 +109,12 @@ impl Hittable for Sphere {
     }
 
     fn pdf_value(&self, origin: Point3, direction: Vec3) -> f64 {
-        match self.hit(&Ray::new(origin, direction), (0.)..=f64::INFINITY) {
+        match self.hit(&Ray::new(origin, direction), (0.001)..=f64::INFINITY) {
             Some(_) => {
                 let distance_squared = (self.center - origin).square_length();
-                let cos_theta_max = (1. - self.radius * self.radius / distance_squared).sqrt();
+                let cos_theta_max = (1. - (self.radius * self.radius) / distance_squared)
+                    .max(0.)
+                    .sqrt();
                 let solid_angle = 2. * PI * (1. - cos_theta_max);
                 1. / solid_angle
             }
@@ -116,6 +123,7 @@ impl Hittable for Sphere {
     }
 
     // TODO: Look into equivalent but cheaper way to do this
+    /// We assume that `origin` is outside the sphere.
     fn random(&self, origin: Point3, rng: &mut dyn rand::RngCore) -> Vec3 {
         let direction = self.center - origin;
         let distance = direction.length();
@@ -134,7 +142,7 @@ impl Hittable for Sphere {
 
 impl Bounded for Sphere {
     fn get_aabbox(&self) -> AABBox {
-        self.aabox
+        self.aabbox
     }
 
     fn get_surface_area(&self) -> f64 {

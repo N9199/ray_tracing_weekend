@@ -33,9 +33,9 @@ impl Cuboid {
         <T as TryInto<DynMaterial>>::Error: Debug,
     {
         let mat_ptr = mat_ptr.try_into().unwrap();
-        let aabox = AABBox::from_points([p, q]);
-        let min_p = Point3::from(get_axis().map(|axis| *aabox.axis(axis).start()));
-        let max_p = Point3::from(get_axis().map(|axis| *aabox.axis(axis).end()));
+        let aabbox = AABBox::from_points([p, q]);
+        let min_p = Point3::from(get_axis().map(|axis| *aabbox.axis(axis).start()));
+        let max_p = Point3::from(get_axis().map(|axis| *aabbox.axis(axis).end()));
         let delta = max_p - min_p;
         let dx = Vec3::new(delta.x, 0., 0.);
         let dy = Vec3::new(0., delta.y, 0.);

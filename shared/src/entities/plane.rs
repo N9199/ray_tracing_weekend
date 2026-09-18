@@ -27,12 +27,32 @@ pub struct Plane {
 impl Plane {
     /// # Panics
     /// If `T` fails to be converted into `DynMaterial` this function will panic
+    /// It'll panic if the normal is strictly down-facing (i.e. `normal.y` is negative and both `normal.x` and `normal.z` are zero)
+    /// It'll panic if the normal is "zero", has `NaN` or `Inf` components.
     #[must_use]
     pub fn new<T>(point: Point3, normal: Vec3, mat_ptr: T) -> Self
     where
         T: TryInto<DynMaterial>,
         <T as TryInto<DynMaterial>>::Error: Debug,
     {
+        assert!(
+            !(normal.y < 0. && normal.x.abs() < f64::EPSILON && normal.z.abs() < f64::EPSILON),
+            "Normal is strictly down-facing"
+        );
+        assert!(
+            !(normal.x.abs() < f64::EPSILON
+                && normal.y.abs() < f64::EPSILON
+                && normal.z.abs() < f64::EPSILON),
+            "Normal is zero"
+        );
+        assert!(
+            !(normal.x.is_nan() || normal.y.is_nan() || normal.z.is_nan()),
+            "Normal has NaN components"
+        );
+        assert!(
+            !(normal.x.is_infinite() || normal.y.is_infinite() || normal.z.is_infinite()),
+            "Normal has Inf components"
+        );
         Self {
             point,
             normal: normal.normalize(),

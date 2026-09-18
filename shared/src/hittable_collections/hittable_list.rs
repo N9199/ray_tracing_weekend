@@ -33,14 +33,14 @@ mod hash_map_based {
     pub struct HittableList {
         pub(in crate::hittable_collections) values: HashMap<TypeId, RawHittableVec>,
         pub(in crate::hittable_collections) len: usize,
-        pub(in crate::hittable_collections) aabox: Option<AABBox>,
+        pub(in crate::hittable_collections) aabbox: Option<AABBox>,
     }
 
     impl HittableList {
         pub fn clear(&mut self) {
             self.values.clear();
             self.len = 0;
-            self.aabox = None;
+            self.aabbox = None;
         }
 
         pub const fn len(&self) -> usize {
@@ -56,8 +56,8 @@ mod hash_map_based {
         where
             T: BoundedHittable + Debug + Any,
         {
-            self.aabox = self
-                .aabox
+            self.aabbox = self
+                .aabbox
                 .map_or_else(|| object.get_aabbox(), |b| b.enclose(&object))
                 .into();
             let key = object.type_id();
@@ -76,16 +76,16 @@ mod hash_map_based {
             self.values.into_iter().for_each(|(id, obj)| {
                 let (obj_left, obj_right) = obj.split_by(plane);
                 if obj_right.len() > 0 {
-                    let aabox = obj_right.get_aabbox();
+                    let aabbox = obj_right.get_aabbox();
                     right.len += obj_right.len();
                     right.values.insert(id, obj_right);
-                    right.aabox = right.aabox.map_or(aabox, |b| b.enclose(&aabox)).into();
+                    right.aabbox = right.aabbox.map_or(aabbox, |b| b.enclose(&aabbox)).into();
                 }
                 if obj_left.len() > 0 {
-                    let aabox = obj_left.get_aabbox();
+                    let aabbox = obj_left.get_aabbox();
                     left.len += obj_left.len();
                     left.values.insert(id, obj_left);
-                    left.aabox = left.aabox.map_or(aabox, |b| b.enclose(&aabox)).into();
+                    left.aabbox = left.aabbox.map_or(aabbox, |b| b.enclose(&aabbox)).into();
                 }
             });
             (right, left)
@@ -203,7 +203,7 @@ mod hash_map_based {
 
     impl Bounded for HittableList {
         fn get_aabbox(&self) -> AABBox {
-            self.aabox.unwrap_or_else(AABBox::zero)
+            self.aabbox.unwrap_or_else(AABBox::zero)
         }
 
         fn get_surface_area(&self) -> f64 {
@@ -306,16 +306,16 @@ mod vector_based {
             self.values.into_iter().for_each(|(id, obj)| {
                 let (obj_left, obj_right) = obj.split_by(plane);
                 if obj_right.len() > 0 {
-                    let aabox = obj_right.get_aabbox();
+                    let aabbox = obj_right.get_aabbox();
                     right.len += obj_right.len();
                     right.values.push((id, obj_right));
-                    right.aabbox = right.aabbox.map_or(aabox, |b| b.enclose(&aabox)).into();
+                    right.aabbox = right.aabbox.map_or(aabbox, |b| b.enclose(&aabbox)).into();
                 }
                 if obj_left.len() > 0 {
-                    let aabox = obj_left.get_aabbox();
+                    let aabbox = obj_left.get_aabbox();
                     left.len += obj_left.len();
                     left.values.push((id, obj_left));
-                    left.aabbox = left.aabbox.map_or(aabox, |b| b.enclose(&aabox)).into();
+                    left.aabbox = left.aabbox.map_or(aabbox, |b| b.enclose(&aabbox)).into();
                 }
             });
             right.values.sort_unstable_by_key(|(k, _)| *k);
@@ -323,6 +323,7 @@ mod vector_based {
             (right, left)
         }
 
+        #[allow(clippy::missing_panics_doc)]
         #[must_use]
         pub fn best_split(self) -> (Self, Self, AAPlane) {
             if self.is_empty() {

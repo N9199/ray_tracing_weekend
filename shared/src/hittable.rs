@@ -8,12 +8,12 @@ use geometry::{
     vec3::{Point3, Vec3},
 };
 
-pub use aabox_extend::AABBoxHit;
+pub use aabbox_extend::AABBoxHit;
 
 #[cfg(feature = "hit_counters")]
-pub(crate) use aabox_extend::AABOX_HIT_COUNTER;
+pub(crate) use aabbox_extend::AABBOX_HIT_COUNTER;
 
-mod aabox_extend {
+mod aabbox_extend {
     use std::ops::RangeInclusive;
     #[cfg(feature = "hit_counters")]
     use std::sync::atomic::{self, AtomicU32};
@@ -25,7 +25,7 @@ mod aabox_extend {
     use crate::ray::Ray;
 
     #[cfg(feature = "hit_counters")]
-    pub(crate) static AABOX_HIT_COUNTER: AtomicU32 = AtomicU32::new(0);
+    pub(crate) static AABBOX_HIT_COUNTER: AtomicU32 = AtomicU32::new(0);
 
     pub trait AABBoxHit: Bounded {
         fn is_hit(&self, r: &Ray, range: RangeInclusive<f64>) -> bool {
@@ -79,8 +79,8 @@ mod aabox_extend {
 
             #[cfg(feature = "hit_counters")]
             if out {
-                // dbg!("AABox Hit");
-                AABOX_HIT_COUNTER.fetch_add(1, atomic::Ordering::Relaxed);
+                // dbg!("aabbox Hit");
+                AABBOX_HIT_COUNTER.fetch_add(1, atomic::Ordering::Relaxed);
             }
             // dbg!(*self, r, tmin, tmax, &range, out);
             out.then_some(range.start().max(tmin))
@@ -123,10 +123,10 @@ impl<'a> HitRecord<'a> {
             p,
             normal,
             t,
-            front_face,
-            mat_ptr,
             u,
             v,
+            front_face,
+            mat_ptr,
         }
     }
 

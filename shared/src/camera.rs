@@ -385,11 +385,11 @@ impl Camera {
             use crate::entities::{
                 PLANE_HIT_COUNTER, QUAD_HIT_COUNTER, SPHERE_HIT_COUNTER, TRIANGLES_HIT_COUNTER,
             };
-            use crate::hittable::AABOX_HIT_COUNTER;
+            use crate::hittable::AABBOX_HIT_COUNTER;
             use crate::material::LIGHT_HIT_COUNTER;
 
             let hit_counter = HIT_COUNTER.load(Ordering::Acquire);
-            let aabox_counter = AABOX_HIT_COUNTER.load(atomic::Ordering::Acquire);
+            let aabbox_counter = AABBOX_HIT_COUNTER.load(atomic::Ordering::Acquire);
             let triangle_counter = TRIANGLES_HIT_COUNTER.load(atomic::Ordering::Acquire);
             let sphere_counter = SPHERE_HIT_COUNTER.load(atomic::Ordering::Acquire);
             let quad_counter = QUAD_HIT_COUNTER.load(atomic::Ordering::Acquire);
@@ -397,7 +397,7 @@ impl Camera {
             let light_counter = LIGHT_HIT_COUNTER.load(atomic::Ordering::Acquire);
             dbg!(
                 hit_counter,
-                aabox_counter,
+                aabbox_counter,
                 triangle_counter,
                 sphere_counter,
                 quad_counter,

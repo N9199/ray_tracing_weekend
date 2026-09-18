@@ -101,7 +101,7 @@ impl Hittable for Quad {
     }
 
     fn pdf_value(&self, origin: Point3, direction: Vec3) -> f64 {
-        match self.hit(&Ray::new(origin, direction), (0.)..=f64::INFINITY) {
+        match self.hit(&Ray::new(origin, direction), (0.001)..=f64::INFINITY) {
             Some(record) => {
                 let distance_squared = record.get_t() * record.get_t() * direction.square_length();
                 let cosine = direction

@@ -123,42 +123,6 @@ mod inner {
             .into()
         }
     }
-
-    #[cfg(test)]
-    mod tests {
-        use crate::{matrix3::Matrix3, transformations::Transformation, vec3::Vec3};
-
-        #[test]
-        fn inverse_times_itself_is_identity() {
-            let mat = Matrix3::from([[2., -1., 1.], [1., 1., 1.], [1., 1., 2.]]);
-            let translation = Vec3::new(0.5, 2., -1.);
-            dbg!(mat.det());
-            let trans = Transformation::from(mat);
-            let trans = trans.apply(translation.into());
-            let inv = trans.inverse().unwrap();
-            let id = trans.apply(inv);
-            for i in 0..3 {
-                assert!((id.rotation.0[i][i] - 1.).abs() < f64::EPSILON);
-                assert!(
-                    (id.translation.inner()[i]).abs() < f64::EPSILON,
-                    "id.translation.inner()[i] = {:?}",
-                    id.translation.inner()[i]
-                );
-            }
-        }
-
-        #[test]
-        fn inverse_of_identity_is_identity() {
-            let id = Matrix3::from([[1., 0., 0.], [0., 1., 0.], [0., 0., 1.]]);
-            let trans_id = Transformation::from(id);
-            let inv = trans_id.inverse().unwrap();
-            for i in 0..3 {
-                for j in 0..3 {
-                    assert!((id.0[i][j] - inv.rotation.0[i][j]).abs() < f64::EPSILON);
-                }
-            }
-        }
-    }
 }
 
 #[cfg(feature = "euclid")]

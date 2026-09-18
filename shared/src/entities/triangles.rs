@@ -1,6 +1,9 @@
 #[cfg(feature = "hit_counters")]
 use std::sync::atomic::{self, AtomicU32};
 
+#[cfg(feature = "euclid")]
+use geometry::vec3::Vec3Ext as _;
+
 use std::fmt::Debug;
 use std::ops::{Div, RangeInclusive, Sub};
 

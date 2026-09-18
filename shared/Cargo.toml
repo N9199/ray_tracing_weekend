@@ -30,5 +30,5 @@ name = "sphere_hit"
 harness = false
 
 [[bench]]
-name = "aabox_hit"
+name = "aabbox_hit"
 harness = false

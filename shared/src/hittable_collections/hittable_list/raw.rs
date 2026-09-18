@@ -134,7 +134,7 @@ pub struct RawHittableVec {
     ptr: *mut u8,
     len: usize,
     cap: usize,
-    cached_aabox: AtomicCell<Option<AABBox>>,
+    cached_aabbox: AtomicCell<Option<AABBox>>,
     fns: &'static Functions,
 }
 // To create a RawHittableVec with `new` you have to guarantee that `T` is Send and Sync,
@@ -164,7 +164,7 @@ impl RawHittableVec {
             ptr: ptr.cast(),
             len,
             cap,
-            cached_aabox: AtomicCell::new(None),
+            cached_aabbox: AtomicCell::new(None),
             fns: &T::FUNCTIONS,
         }
     }
@@ -183,10 +183,10 @@ impl RawHittableVec {
         }
         std::mem::forget(vec);
         let bbox = self
-            .cached_aabox
+            .cached_aabbox
             .load()
             .map_or(bbox, |value| value.enclose(&bbox));
-        self.cached_aabox.store(Some(bbox));
+        self.cached_aabbox.store(Some(bbox));
     }
 
     pub fn split_by(mut self, plane: AAPlane) -> (Self, Self) {
@@ -206,16 +206,19 @@ impl RawHittableVec {
             Bound::Excluded(val) => val.saturating_add(1),
             Bound::Unbounded => 0,
         };
+        if start_bound >= self.len {
+            return;
+        }
         let end_bound = match range.end_bound() {
             Bound::Included(0) | Bound::Excluded(0 | 1) => {
                 return;
             }
-            Bound::Included(val) => self.len.min(val - 1),
+            Bound::Included(val) => self.len.min(val.saturating_add(1)),
             Bound::Excluded(val) => self.len.min(*val),
             Bound::Unbounded => self.len,
         };
         let start_ptr = unsafe { (self.fns.advance_by_n_shim)(self.ptr, start_bound) };
-        (self.fns.sort_by_axis)(start_ptr.cast_mut(), end_bound, axis);
+        (self.fns.sort_by_axis)(start_ptr.cast_mut(), end_bound - start_bound, axis);
     }
 
     #[expect(unused)]
@@ -265,16 +268,16 @@ impl Hittable for RawHittableVec {
 
 impl Bounded for RawHittableVec {
     fn get_aabbox(&self) -> AABBox {
-        if let Some(aabox) = self.cached_aabox.load() {
-            return aabox;
+        if let Some(aabbox) = self.cached_aabbox.load() {
+            return aabbox;
         }
-        let aabox = unsafe {
+        let aabbox = unsafe {
             (self.fns.slice_into_bounded)((&raw const *self).cast::<Slice<u8>>()).as_ref()
         }
         .unwrap()
         .get_aabbox();
-        self.cached_aabox.store(Some(aabox));
-        aabox
+        self.cached_aabbox.store(Some(aabbox));
+        aabbox
     }
 
     fn get_surface_area(&self) -> f64 {
