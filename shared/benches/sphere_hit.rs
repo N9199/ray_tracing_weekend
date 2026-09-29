@@ -1,7 +1,7 @@
 use std::sync::Arc;
 
-use criterion::{Criterion, criterion_group, criterion_main};
-use rand::{Rng, SeedableRng, rngs::SmallRng};
+use criterion::{criterion_group, criterion_main, Criterion};
+use rand::{rngs::SmallRng, Rng, SeedableRng};
 
 use geometry::vec3::{Point3, Vec3};
 use shared::{
@@ -24,7 +24,7 @@ fn sphere_hits(c: &mut Criterion) {
             },
             |r| sphere.hit(&r, (0.)..=f64::MAX),
             criterion::BatchSize::SmallInput,
-        )
+        );
     });
 }
 
