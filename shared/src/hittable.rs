@@ -8,26 +8,26 @@ use geometry::{
     vec3::{Point3, Vec3},
 };
 
-pub use aabox_extend::AABoxHit;
+pub use aabbox_extend::AABBoxHit;
 
 #[cfg(feature = "hit_counters")]
-pub(crate) use aabox_extend::AABOX_HIT_COUNTER;
+pub(crate) use aabbox_extend::AABBOX_HIT_COUNTER;
 
-mod aabox_extend {
+mod aabbox_extend {
     use std::ops::RangeInclusive;
     #[cfg(feature = "hit_counters")]
     use std::sync::atomic::{self, AtomicU32};
 
     #[cfg(feature = "euclid")]
-    use geometry::aabox::Box3DExt as _;
-    use geometry::{aabox::AABBox, aaplane, bounded::Bounded};
+    use geometry::aabbox::Box3DExt as _;
+    use geometry::{aabbox::AABBox, aaplane, bounded::Bounded};
 
     use crate::ray::Ray;
 
     #[cfg(feature = "hit_counters")]
-    pub(crate) static AABOX_HIT_COUNTER: AtomicU32 = AtomicU32::new(0);
+    pub(crate) static AABBOX_HIT_COUNTER: AtomicU32 = AtomicU32::new(0);
 
-    pub trait AABoxHit: Bounded {
+    pub trait AABBoxHit: Bounded {
         fn is_hit(&self, r: &Ray, range: RangeInclusive<f64>) -> bool {
             self.hit(r, range).is_some()
         }
@@ -35,7 +35,8 @@ mod aabox_extend {
         fn hit(&self, r: &Ray, range: RangeInclusive<f64>) -> Option<f64>;
     }
 
-    impl AABoxHit for AABBox {
+    impl AABBoxHit for AABBox {
+        #[allow(clippy::similar_names)]
         fn hit(&self, r: &Ray, range: RangeInclusive<f64>) -> Option<f64> {
             let (x_min, x_max) = self.axis(aaplane::Axis::X).into_inner();
             let (y_min, y_max) = self.axis(aaplane::Axis::Y).into_inner();
@@ -78,8 +79,8 @@ mod aabox_extend {
 
             #[cfg(feature = "hit_counters")]
             if out {
-                // dbg!("AABox Hit");
-                AABOX_HIT_COUNTER.fetch_add(1, atomic::Ordering::Relaxed);
+                // dbg!("aabbox Hit");
+                AABBOX_HIT_COUNTER.fetch_add(1, atomic::Ordering::Relaxed);
             }
             // dbg!(*self, r, tmin, tmax, &range, out);
             out.then_some(range.start().max(tmin))
@@ -98,6 +99,7 @@ pub struct HitRecord<'a> {
 }
 
 impl<'a> HitRecord<'a> {
+    #[allow(clippy::many_single_char_names)]
     #[inline]
     pub fn new(
         r: &Ray,
@@ -121,44 +123,51 @@ impl<'a> HitRecord<'a> {
             p,
             normal,
             t,
-            front_face,
-            mat_ptr,
             u,
             v,
+            front_face,
+            mat_ptr,
         }
     }
 
     #[inline]
+    #[must_use]
     pub const fn get_u(&self) -> f64 {
         self.u
     }
 
     #[inline]
+    #[must_use]
     pub const fn get_v(&self) -> f64 {
         self.v
     }
 
     #[inline]
+    #[must_use]
     pub const fn get_p(&self) -> Point3 {
         self.p
     }
 
     #[inline]
+    #[must_use]
     pub const fn get_normal(&self) -> Vec3 {
         self.normal
     }
 
     #[inline]
+    #[must_use]
     pub const fn get_t(&self) -> f64 {
         self.t
     }
 
     #[inline]
+    #[must_use]
     pub const fn is_front_face(&self) -> bool {
         self.front_face
     }
 
     #[inline]
+    #[must_use]
     pub const fn get_material(&self) -> &dyn Material {
         self.mat_ptr
     }
@@ -166,6 +175,11 @@ impl<'a> HitRecord<'a> {
     #[inline]
     pub(crate) const fn get_mut_p(&mut self) -> &mut Point3 {
         &mut self.p
+    }
+
+    #[inline]
+    pub(crate) const fn get_mut_normal(&mut self) -> &mut Vec3 {
+        &mut self.normal
     }
 }
 
@@ -207,5 +221,117 @@ where
         self.iter()
             .filter_map(|obj| obj.bounded_hit(r, start..=end))
             .min_by(|a, b| a.get_t().total_cmp(&b.get_t()))
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use geometry::{
+        aabbox::AABBox,
+        test_utils::{
+            assert_close as assert_close_with_tolerance,
+            assert_point as assert_point_with_tolerance, assert_vec as assert_vec_with_tolerance,
+        },
+        vec3::{Point3, Vec3},
+    };
+
+    use crate::{
+        entities::Sphere,
+        hittable::{AABBoxHit as _, BoundedHittable, HitRecord},
+        material::INVISIBLE_PTR,
+        ray::Ray,
+    };
+
+    const TOLERANCE: f64 = 1e-10;
+
+    fn assert_close(actual: f64, expected: f64) {
+        assert_close_with_tolerance(actual, expected, TOLERANCE);
+    }
+
+    fn assert_point(actual: Point3, expected: Point3) {
+        assert_point_with_tolerance(actual, expected, TOLERANCE);
+    }
+
+    fn assert_vec(actual: Vec3, expected: Vec3) {
+        assert_vec_with_tolerance(actual, expected, TOLERANCE);
+    }
+
+    fn box_fixture() -> AABBox {
+        AABBox::new(Point3::new(0., 0., 0.), Point3::new(1., 1., 1.))
+    }
+
+    #[test]
+    fn aabb_hits_misses_and_swaps_negative_axis_intervals() {
+        let aabb = box_fixture();
+        let through_x = Ray::new(Point3::new(-1., 0.5, 0.5), Vec3::new(1., 0., 0.));
+        assert_close(aabb.hit(&through_x, 0. ..=f64::INFINITY).unwrap(), 1.);
+        assert!(aabb.is_hit(&through_x, 0. ..=f64::INFINITY));
+
+        let outside_y = Ray::new(Point3::new(-1., 2., 0.5), Vec3::new(1., 0., 0.));
+        assert_eq!(aabb.hit(&outside_y, 0. ..=f64::INFINITY), None);
+
+        let reverse_x = Ray::new(Point3::new(2., 0.5, 0.5), Vec3::new(-1., 0., 0.));
+        assert_close(aabb.hit(&reverse_x, 0. ..=f64::INFINITY).unwrap(), 1.);
+
+        let reverse_y = Ray::new(Point3::new(0.5, 2., 0.5), Vec3::new(0., -1., 0.));
+        assert_close(aabb.hit(&reverse_y, 0. ..=f64::INFINITY).unwrap(), 1.);
+    }
+
+    #[test]
+    fn aabb_clips_to_inclusive_ray_parameter_range() {
+        let aabb = box_fixture();
+        let ray = Ray::new(Point3::new(-1., 0.5, 0.5), Vec3::new(1., 0., 0.));
+        assert_close(aabb.hit(&ray, 0. ..=f64::INFINITY).unwrap(), 1.);
+        assert_close(aabb.hit(&ray, 1.5..=3.).unwrap(), 1.5);
+        assert_eq!(aabb.hit(&ray, 0. ..=0.999), None);
+        assert_close(aabb.hit(&ray, 1. ..=1.).unwrap(), 1.);
+        assert_eq!(aabb.hit(&ray, 0. ..=0.999_999), None);
+    }
+
+    #[test]
+    fn aabb_accepts_slab_tangency() {
+        let aabb = box_fixture();
+        let ray = Ray::new(Point3::new(-1., 0., 0.5), Vec3::new(1., 1., 0.));
+        assert_close(aabb.hit(&ray, 0. ..=f64::INFINITY).unwrap(), 1.);
+        assert_close(aabb.hit(&ray, 1. ..=1.).unwrap(), 1.);
+    }
+
+    #[test]
+    fn hit_record_orients_normal_and_preserves_ray_parameter_and_uvs() {
+        let ray = Ray::new(Point3::new(1., 2., 3.), Vec3::new(0., 0., -2.));
+        let front = HitRecord::new(&ray, 0.5, Vec3::new(0., 0., 1.), 0.25, 0.75, INVISIBLE_PTR);
+        assert_point(front.get_p(), Point3::new(1., 2., 2.));
+        assert_close(front.get_t(), 0.5);
+        assert_close(front.get_u(), 0.25);
+        assert_close(front.get_v(), 0.75);
+        assert!(front.is_front_face());
+        assert_vec(front.get_normal(), Vec3::new(0., 0., 1.));
+
+        let back_ray = Ray::new(Point3::new(1., 2., 3.), Vec3::new(0., 0., 2.));
+        let back = HitRecord::new(
+            &back_ray,
+            0.5,
+            Vec3::new(0., 0., 1.),
+            0.25,
+            0.75,
+            INVISIBLE_PTR,
+        );
+        assert!(!back.is_front_face());
+        assert_vec(back.get_normal(), Vec3::new(0., 0., -1.));
+    }
+
+    #[test]
+    fn bounded_hit_uses_aabb_as_a_gate_not_as_the_surface_hit() {
+        let sphere = Sphere::new(Point3::zero(), 1., INVISIBLE_PTR);
+        let box_only = Ray::new(Point3::new(-3., 0.9, 0.9), Vec3::new(1., 0., 0.));
+        assert!(sphere.is_aabbox_hit(&box_only, 0. ..=f64::INFINITY));
+        assert!(sphere.bounded_hit(&box_only, 0. ..=f64::INFINITY).is_none());
+
+        let surface_hit = Ray::new(Point3::new(-3., 0., 0.), Vec3::new(1., 0., 0.));
+        let record = sphere
+            .bounded_hit(&surface_hit, 0. ..=f64::INFINITY)
+            .unwrap();
+        assert_close(record.get_t(), 2.);
+        assert_point(record.get_p(), Point3::new(-1., 0., 0.));
     }
 }

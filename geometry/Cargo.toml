@@ -1,10 +1,12 @@
 [package]
 name = "geometry"
-version = "0.1.0"
-edition = "2024"
+version = {workspace = true}
+edition = {workspace = true}
 
 [features]
 euclid = ["dep:euclid"]
+debug = []
+test-utils = []
 
 [dependencies]
 euclid = {version = "0.22.11", optional = true}

@@ -1,0 +1,91 @@
+[camera]
+look_from = [277.5, 277.5, -800.0]
+look_at = [277.5, 277.5, 0.0]
+vfov = 40.0
+
+[materials.red]
+type = "lambertian"
+texture = { type = "solid", color = [0.65, 0.05, 0.05] }
+
+[materials.green]
+type = "lambertian"
+texture = { type = "solid", color = [0.12, 0.45, 0.15] }
+
+[materials.white]
+type = "lambertian"
+texture = { type = "solid", color = [0.73, 0.73, 0.73] }
+
+[materials.glass]
+type = "dielectric"
+index_of_refraction = 1.5
+
+[materials.ceiling_light]
+type = "diffuse_light"
+texture = { type = "solid", color = [15.0, 15.0, 15.0] }
+
+[[objects]]
+material = "green"
+[objects.shape]
+type = "quad"
+point = [555.0, 0.0, 0.0]
+u = [0.0, 555.0, 0.0]
+v = [0.0, 0.0, 555.0]
+
+[[objects]]
+material = "red"
+[objects.shape]
+type = "quad"
+point = [0.0, 0.0, 0.0]
+u = [0.0, 555.0, 0.0]
+v = [0.0, 0.0, 555.0]
+
+[[objects]]
+material = "white"
+[objects.shape]
+type = "quad"
+point = [0.0, 0.0, 0.0]
+u = [555.0, 0.0, 0.0]
+v = [0.0, 0.0, 555.0]
+
+[[objects]]
+material = "white"
+[objects.shape]
+type = "quad"
+point = [0.0, 555.0, 0.0]
+u = [555.0, 0.0, 0.0]
+v = [0.0, 0.0, 555.0]
+
+[[objects]]
+material = "white"
+[objects.shape]
+type = "quad"
+point = [0.0, 0.0, 555.0]
+u = [0.0, 555.0, 0.0]
+v = [555.0, 0.0, 0.0]
+
+[[objects]]
+material = "white"
+transforms = [
+    { type = "translate", offset = [265.0, 0.0, 295.0] },
+    { type = "rotate", axis = "y", degrees = 15.0 },
+]
+[objects.shape]
+type = "cuboid"
+min = [0.0, 0.0, 0.0]
+max = [165.0, 330.0, 165.0]
+
+[[objects]]
+material = "glass"
+[objects.shape]
+type = "sphere"
+center = [190.0, 90.0, 190.0]
+radius = 90.0
+
+[[objects]]
+material = "ceiling_light"
+sample_as_light = true
+[objects.shape]
+type = "quad"
+point = [343.0, 554.0, 332.0]
+u = [-130.0, 0.0, 0.0]
+v = [0.0, 0.0, -105.0]

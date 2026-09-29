@@ -8,8 +8,8 @@ profile.json.gz
 .vscode/
 
 # Outputs
-image.ppm
-image.png
+*.ppm
+*.png
 miri.txt
 test.log
 flamegraph.svg
