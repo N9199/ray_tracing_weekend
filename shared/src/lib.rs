@@ -1,4 +1,5 @@
-// #![feature(explicit_tail_calls)]
+#![expect(incomplete_features)]
+#![feature(explicit_tail_calls)]
 pub mod camera;
 pub mod colour;
 pub mod entities;

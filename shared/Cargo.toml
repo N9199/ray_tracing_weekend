@@ -1,26 +1,29 @@
 [package]
 name = "shared"
-version = "0.1.0"
-edition = "2024"
+version = {workspace = true}
+edition = {workspace = true}
+
+[lints]
+workspace = true
 
 [features]
 hit_counters = []
 euclid = ["geometry/euclid"]
-
-[profile.release]
-debug = true
+debug = ["geometry/debug", "hit_counters"]
 
 [dependencies]
 arrayvec = "0.7.6"
+bumpalo = {workspace = true}
 crossbeam = "0.8.2"
 itertools = "0.10.5"
-kdam = {version = "0.4.1", features = ["rayon"]}
+kdam = {version = "0.6.4", features = ["rayon"]}
 libm = "0.2.15"
 rand = { workspace = true }
 rayon = "1.10.0"
 geometry = {path = "../geometry"}
 
 [dev-dependencies]
+geometry = {path = "../geometry", features = ["test-utils"]}
 criterion = "0.4.0"
 
 [[bench]]
@@ -28,5 +31,5 @@ name = "sphere_hit"
 harness = false
 
 [[bench]]
-name = "aabox_hit"
+name = "aabbox_hit"
 harness = false

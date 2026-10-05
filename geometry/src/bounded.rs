@@ -1,4 +1,4 @@
-use crate::aabox::AABBox;
+use crate::aabbox::AABBox;
 #[cfg(feature = "euclid")]
 use crate::vec3::Vec3;
 
