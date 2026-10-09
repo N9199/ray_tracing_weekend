@@ -108,10 +108,10 @@ mod tests {
 
     #[test]
     fn union_of_planar_bounds_keeps_their_full_extent() {
-        let xy_plane = AABBox::new(Point3D::new(0., 0., 0.), Point3D::new(2., 3., 0.));
-        let xz_plane = AABBox::new(Point3D::new(1., -1., -2.), Point3D::new(4., -1., 2.));
+        let horizontal_bounds = AABBox::new(Point3D::new(0., 0., 0.), Point3D::new(2., 3., 0.));
+        let vertical_bounds = AABBox::new(Point3D::new(1., -1., -2.), Point3D::new(4., -1., 2.));
 
-        let bounds = xy_plane.enclose(&xz_plane);
+        let bounds = horizontal_bounds.enclose(&vertical_bounds);
 
         assert_eq!(bounds.min, Point3D::new(0., -1., -2.));
         assert_eq!(bounds.max, Point3D::new(4., 3., 2.));
@@ -338,7 +338,7 @@ mod geometry_tests {
         let mut actual: Vec<[f64; 3]> = box3
             .get_points()
             .into_iter()
-            .map(|point| point.to_array())
+            .map(Point3::to_array)
             .collect::<Vec<_>>();
         let mut expected: Vec<[f64; 3]> = Vec::new();
         for x in [-1., 3.] {

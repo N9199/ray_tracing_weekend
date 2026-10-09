@@ -11,7 +11,7 @@ mod hash_map_based {
     use geometry::aabbox::Box3DExt as _;
     use geometry::{
         aabbox::AABBox,
-        aaplane::{get_axis, AAPlane, Axis},
+        aaplane::{AAPlane, Axis, get_axis},
         bounded::Bounded,
         vec3::{Point3, Vec3},
     };
@@ -233,7 +233,7 @@ mod vector_based {
     use geometry::aabbox::Box3DExt as _;
     use geometry::{
         aabbox::AABBox,
-        aaplane::{get_axis, AAPlane, Axis},
+        aaplane::{AAPlane, Axis, get_axis},
         bounded::Bounded,
         vec3::{Point3, Vec3},
     };

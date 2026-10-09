@@ -3,7 +3,7 @@ use std::sync::atomic::AtomicU32;
 use std::{f64::consts::PI, fmt::Debug, sync::Arc};
 
 use bumpalo::Bump;
-use rand::{distributions::Open01, Rng};
+use rand::{Rng, distributions::Open01};
 
 use geometry::vec3::Point3;
 #[cfg(feature = "euclid")]
@@ -572,7 +572,7 @@ mod tests {
         vec3::{Point3, Vec3},
     };
 
-    use rand::{distributions::Open01, rngs::SmallRng, Rng as _, SeedableRng as _};
+    use rand::{Rng as _, SeedableRng as _, distributions::Open01, rngs::SmallRng};
 
     use crate::{
         colour::Colour,
@@ -695,9 +695,11 @@ mod tests {
         let rough_record = HitRecord::new(&ray, 1., Vec3::new(0., 0., 1.), 0.2, 0.7, &rough_metal);
         let mut rough_rng = SmallRng::seed_from_u64(0x0BAD_5EED);
         let bump = bumpalo::Bump::new();
-        assert!(rough_metal
-            .scatter(&ray, &rough_record, &mut rough_rng, &bump)
-            .is_none());
+        assert!(
+            rough_metal
+                .scatter(&ray, &rough_record, &mut rough_rng, &bump)
+                .is_none()
+        );
     }
 
     #[test]
@@ -736,11 +738,13 @@ mod tests {
             Vec3::new(0., 0., -1.),
             TOLERANCE,
         );
-        assert!(refracted_ray
-            .get_direction()
-            .to_array()
-            .into_iter()
-            .all(f64::is_finite));
+        assert!(
+            refracted_ray
+                .get_direction()
+                .to_array()
+                .into_iter()
+                .all(f64::is_finite)
+        );
     }
 
     #[test]
@@ -776,9 +780,11 @@ mod tests {
             Colour::new(2.23, 0.71, -1.),
         );
         let mut rng = SmallRng::seed_from_u64(0xF1A7);
-        assert!(light
-            .scatter(&ray, &light_record, &mut rng, &bump)
-            .is_none());
+        assert!(
+            light
+                .scatter(&ray, &light_record, &mut rng, &bump)
+                .is_none()
+        );
         assert_close(light.scattering_pdf(&ray, &light_record, &ray), 0.);
 
         let isotropic = Isotropic::new(Arc::new(UvPointTexture));

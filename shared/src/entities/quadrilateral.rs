@@ -5,7 +5,7 @@ use std::{
     ops::{Div, RangeInclusive, Sub},
 };
 
-use rand::{distributions::Open01, Rng as _};
+use rand::{Rng as _, distributions::Open01};
 
 use geometry::{
     aabbox::AABBox,

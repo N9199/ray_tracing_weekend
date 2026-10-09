@@ -129,7 +129,7 @@ mod inner {
 pub type Transformation = euclid::Transform3D<f64, UnknownUnit, UnknownUnit>;
 
 #[cfg(not(feature = "euclid"))]
-pub use inner::{rotation, Transformation};
+pub use inner::{Transformation, rotation};
 
 #[derive(Debug)]
 pub struct Transformed<T> {
@@ -213,7 +213,7 @@ mod tests {
         aaplane::Axis,
         bounded::Bounded,
         test_utils::{assert_close, assert_point, assert_vec},
-        transformations::{rotation, Transformable, Transformation},
+        transformations::{Transformable, Transformation, rotation},
         vec3::{Point3, Vec3},
     };
 

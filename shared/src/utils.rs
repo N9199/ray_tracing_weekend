@@ -170,7 +170,7 @@ pub mod random_utils {
 #[cfg(test)]
 mod tests {
     use geometry::test_utils::{assert_close, assert_vec};
-    use rand::{rngs::SmallRng, Rng as _, SeedableRng as _};
+    use rand::{Rng as _, SeedableRng as _, rngs::SmallRng};
 
     use crate::utils::random_utils::{CosineWeightedHemisphere, UnitSphere};
 

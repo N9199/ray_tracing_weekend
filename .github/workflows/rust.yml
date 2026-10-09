@@ -2,24 +2,91 @@ name: Rust
 
 on:
   push:
-    branches: ["main"]
+    branches: [main]
   pull_request:
-    branches: ["main"]
+    branches: [main]
+
+permissions:
+  contents: read
 
 env:
   CARGO_TERM_COLOR: always
 
 jobs:
-  build:
+  test:
+    name: Test (${{ matrix.feature }})
     runs-on: ubuntu-latest
-
+    timeout-minutes: 30
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - feature: default
+            cargo_features: ""
+          - feature: euclid
+            cargo_features: --features euclid
     steps:
-      - uses: actions/checkout@v4
-      - name: Build
-        run: cargo build --verbose && cargo build --verbose --features=euclid
-      - name: Clippy
-        run: cargo clippy --verbose && cargo clippy --verbose --features=euclid
+      - name: Checkout sources
+        uses: actions/checkout@v4
+      - name: Install Rust toolchain
+        uses: actions-rust-lang/setup-rust-toolchain@v1
+      - name: Install cargo-nextest
+        uses: taiki-e/install-action@f7e5d7c961414b23f5b25b2da9294395d08513ad9 # v2.87.26
+        with:
+          tool: nextest@0.9.148
       - name: Run tests
-        run: cargo test --verbose && cargo test --verbose --features=euclid
-      - name: Run Miri
-        run: cargo miri test --verbose
+        run: cargo nextest run --workspace ${{ matrix.cargo_features }} --no-tests=warn
+      - name: Run doctests
+        run: cargo test --doc --workspace ${{ matrix.cargo_features }}
+
+  miri:
+    name: Miri (euclid)
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    steps:
+      - name: Checkout sources
+        uses: actions/checkout@v4
+      - name: Install Rust toolchain
+        uses: actions-rust-lang/setup-rust-toolchain@v1
+      - name: Install cargo-nextest
+        uses: taiki-e/install-action@f7e5d7c961414b23f5b25b2da9294395d08513ad9 # v2.87.26
+        with:
+          tool: nextest@0.9.148
+      - name: Prepare Miri
+        run: cargo miri setup
+      - name: Run tests under Miri
+        run: cargo miri nextest run --workspace --features euclid --no-tests=warn
+
+  clippy:
+    name: Clippy (${{ matrix.feature }})
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - feature: default
+            cargo_features: ""
+          - feature: euclid
+            cargo_features: --features euclid
+    steps:
+      - name: Checkout sources
+        uses: actions/checkout@v4
+      - name: Install Rust toolchain
+        uses: actions-rust-lang/setup-rust-toolchain@v1
+      - name: Run Clippy
+        run: cargo clippy --workspace --all-targets ${{ matrix.cargo_features }} -- -D warnings
+
+  format:
+    name: Format
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - name: Checkout sources
+        uses: actions/checkout@v4
+      - name: Install Rust toolchain
+        uses: actions-rust-lang/setup-rust-toolchain@v1
+      - name: Install rustfmt
+        run: rustup component add rustfmt
+      - name: Check formatting
+        run: cargo fmt --all -- --check

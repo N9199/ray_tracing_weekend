@@ -218,7 +218,7 @@ mod flat {
     use geometry::aabbox::Box3DExt as _;
     use geometry::{
         aabbox::AABBox,
-        aaplane::{get_axis, Axis},
+        aaplane::{Axis, get_axis},
         bounded::Bounded,
     };
 

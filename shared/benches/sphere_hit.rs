@@ -1,7 +1,7 @@
 use std::sync::Arc;
 
-use criterion::{criterion_group, criterion_main, Criterion};
-use rand::{rngs::SmallRng, Rng, SeedableRng};
+use criterion::{Criterion, criterion_group, criterion_main};
+use rand::{Rng, SeedableRng, rngs::SmallRng};
 
 use geometry::vec3::{Point3, Vec3};
 use shared::{
