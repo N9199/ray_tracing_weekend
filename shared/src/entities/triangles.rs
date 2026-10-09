@@ -12,8 +12,8 @@ use geometry::{
     aabbox::AABBox,
     vec3::{Point3, Vec3},
 };
-use rand::distributions::Open01;
 use rand::Rng as _;
+use rand::distributions::Open01;
 
 use crate::hittable::{BoundedHittable, HitRecord, Hittable};
 use crate::material::DynMaterial;

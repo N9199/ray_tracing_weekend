@@ -3,7 +3,7 @@ use std::{collections::BTreeMap, ops::RangeInclusive, sync::Arc};
 use geometry::{
     aaplane::Axis,
     bounded::Bounded,
-    transformations::{rotation, Transformable as _, Transformation},
+    transformations::{Transformable as _, Transformation, rotation},
     vec3::{Point3, Translation3, Vec3},
 };
 use serde::Deserialize;
@@ -522,7 +522,7 @@ fn require_colour(field: &str, value: [f64; 3]) -> Result<(), String> {
 #[cfg(test)]
 mod tests {
     use geometry::vec3::{Point3, Vec3};
-    use rand::{rngs::SmallRng, SeedableRng};
+    use rand::{SeedableRng, rngs::SmallRng};
     use shared::ray::Ray;
 
     use super::SceneConfig;
@@ -591,10 +591,12 @@ v = [0.0, 0.0, 2.0]
     fn rejects_unknown_material_references() {
         let invalid = BASIC_SCENE.replace("material = \"white\"", "material = \"missing\"");
         let scene: SceneConfig = toml::from_str(&invalid).unwrap();
-        assert!(scene
-            .build_scene()
-            .unwrap_err()
-            .contains("unknown material \"missing\""));
+        assert!(
+            scene
+                .build_scene()
+                .unwrap_err()
+                .contains("unknown material \"missing\"")
+        );
     }
 
     #[test]
@@ -604,9 +606,11 @@ v = [0.0, 0.0, 2.0]
             "type = \"plane\"\npoint = [0.0, 3.0, 0.0]\nnormal = [0.0, 1.0, 0.0]",
         );
         let scene: SceneConfig = toml::from_str(&invalid).unwrap();
-        assert!(scene
-            .build_scene()
-            .unwrap_err()
-            .contains("sample_as_light is supported only"));
+        assert!(
+            scene
+                .build_scene()
+                .unwrap_err()
+                .contains("sample_as_light is supported only")
+        );
     }
 }

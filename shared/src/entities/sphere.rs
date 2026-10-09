@@ -6,7 +6,7 @@ use std::{
     ops::{Div, Neg, RangeInclusive},
 };
 
-use rand::{distributions::Standard, Rng};
+use rand::{Rng, distributions::Standard};
 
 use geometry::{
     aabbox::AABBox,

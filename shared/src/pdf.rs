@@ -1,6 +1,6 @@
 use std::{f64::consts::PI, fmt::Debug};
 
-use rand::{distributions::Standard, Rng};
+use rand::{Rng, distributions::Standard};
 
 use geometry::{
     onb::Onb,
@@ -109,7 +109,7 @@ mod tests {
         test_utils::{assert_close as assert_close_with_tolerance, assert_point, assert_vec},
         vec3::{Point3, Vec3},
     };
-    use rand::{rngs::SmallRng, RngCore as _, SeedableRng as _};
+    use rand::{RngCore as _, SeedableRng as _, rngs::SmallRng};
 
     use crate::{
         hittable::{HitRecord, Hittable},

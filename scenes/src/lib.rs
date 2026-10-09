@@ -1,10 +1,10 @@
 use std::sync::Arc;
 
-use rand::{distributions::Standard, rngs::SmallRng, thread_rng, Rng as _, SeedableRng};
+use rand::{Rng as _, SeedableRng, distributions::Standard, rngs::SmallRng, thread_rng};
 
 use geometry::{
     aaplane::Axis,
-    transformations::{rotation, Transformable as _},
+    transformations::{Transformable as _, rotation},
     vec3::{Point3, Translation3, Vec3},
 };
 
@@ -14,7 +14,7 @@ use shared::{
     entities::{Cuboid, Plane, Quad, Sphere},
     hittable::BoundedHittable,
     hittable_collections::{bvh::BoundedVolumeHierarchy, hittable_list::HittableList},
-    material::{Dielectric, DiffuseLight, Lambertian, Material, Metal, INVISIBLE_PTR},
+    material::{Dielectric, DiffuseLight, INVISIBLE_PTR, Lambertian, Material, Metal},
     texture::{CheckerTexture, NoiseTexture, SolidColour},
     utils::random_utils,
 };

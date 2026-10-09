@@ -2,14 +2,12 @@ use std::ops::{Add, Div, Mul, Sub};
 #[cfg(feature = "hit_counters")]
 use std::sync::atomic::{self, AtomicU64, Ordering};
 
-#[cfg(feature = "euclid")]
-use geometry::vec3::Vec3Ext as _;
-
 use bumpalo::Bump;
 use rand::{
+    Rng as _, SeedableRng as _,
     distributions::{Distribution, Standard, Uniform},
     rngs::SmallRng,
-    thread_rng, Rng as _, SeedableRng as _,
+    thread_rng,
 };
 use rayon::iter::{IntoParallelIterator as _, ParallelIterator as _};
 
@@ -292,6 +290,7 @@ pub struct Camera {
 #[derive(Debug, Clone, Copy)]
 pub(crate) enum DebugModes {
     Off,
+    #[cfg_attr(miri, expect(unused))]
     Normal,
     #[cfg_attr(not(miri), expect(unused))]
     Miri,
@@ -602,9 +601,9 @@ impl Camera {
 #[cfg(test)]
 mod tests {
     use rand::{
+        SeedableRng as _,
         distributions::{Distribution, Uniform},
         rngs::SmallRng,
-        SeedableRng as _,
     };
 
     use super::{Camera, CameraBuilder};

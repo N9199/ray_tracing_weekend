@@ -1,6 +1,6 @@
 use std::{
     error::Error,
-    fs::{read_to_string, File},
+    fs::{File, read_to_string},
     io::{BufWriter, Write as _},
     path::PathBuf,
 };
@@ -13,9 +13,9 @@ use crate::{
 use clap::Parser;
 
 use scenes::{
-    checkered_spheres, cornell_box, debugging_scene, lambertian_minimal, perlin_spheres, plane,
-    plane_only, simple, simple_light, simple_single_light, simple_transform, simple_with_moon,
-    SceneConfig, SceneGenerator,
+    SceneConfig, SceneGenerator, checkered_spheres, cornell_box, debugging_scene,
+    lambertian_minimal, perlin_spheres, plane, plane_only, simple, simple_light,
+    simple_single_light, simple_transform, simple_with_moon,
 };
 
 mod config;

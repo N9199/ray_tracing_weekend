@@ -1,5 +1,5 @@
-use criterion::{criterion_group, criterion_main, Criterion};
-use rand::{rngs::SmallRng, Rng, SeedableRng};
+use criterion::{Criterion, criterion_group, criterion_main};
+use rand::{Rng, SeedableRng, rngs::SmallRng};
 
 use geometry::{
     aabbox::AABBox,

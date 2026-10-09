@@ -2,7 +2,7 @@
 mod vec;
 
 #[cfg(feature = "euclid")]
-use euclid::{default::Translation3D, Point3D, UnknownUnit, Vector3D};
+use euclid::{Point3D, UnknownUnit, Vector3D, default::Translation3D};
 #[cfg(not(feature = "euclid"))]
 pub use vec::Vec3;
 #[cfg(not(feature = "euclid"))]

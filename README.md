@@ -6,8 +6,8 @@ Originally based on [Ray Tracing in One Weekend](https://raytracing.github.io/bo
 Choose a built-in scene by name, or load a custom scene from a TOML file. Image dimensions and sampling settings remain in the root `Config.toml`; `--output` selects the output PPM path.
 
 ```sh
-cargo run -p bin -- cornell-box --output image.ppm
-cargo run -p bin -- --scene-file scenes/examples/cornell_box.toml --output custom.ppm
+cargo run --release -p bin -- cornell-box --output image.ppm
+cargo run --release -p bin -- --scene-file scenes/examples/cornell_box.toml --output custom.ppm
 ```
 
 A scene file has a required `[camera]` section, named `[materials.<name>]` tables, and `[[objects]]` entries. Objects reference material names and have a nested `[objects.shape]` table. Supported shapes are `sphere`, `plane`, `quad`, and `cuboid`; material types are `lambertian`, `metal`, `dielectric`, and `diffuse_light`. Lambertian and diffuse-light materials accept `solid`, `checker`, or `noise` textures. Colors are three-component linear RGB arrays.
